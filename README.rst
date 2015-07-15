@@ -1,48 +1,30 @@
-..
-    This file is part of Flask-Notifications
-    Copyright (C) 2015 CERN.
+============
+ Flask-Menu
+============
 
-    Flask-Notifications is free software; you can redistribute it and/or modify
-    it under the terms of the Revised BSD License; see LICENSE file for
-    more details.
-
-=====================
- Flask-Notifications
-=====================
-
-.. image:: https://img.shields.io/travis/inveniosoftware/flask-notifications.svg
-        :target: https://travis-ci.org/inveniosoftware/flask-notifications
-
-.. image:: https://img.shields.io/coveralls/inveniosoftware/flask-notifications.svg
-        :target: https://coveralls.io/r/inveniosoftware/flask-notifications
-
-.. image:: https://img.shields.io/github/tag/inveniosoftware/flask-notifications.svg
-        :target: https://github.com/inveniosoftware/flask-notifications/releases
-
-.. image:: https://img.shields.io/pypi/dm/flask-notifications.svg
-        :target: https://pypi.python.org/pypi/flask-notifications
-
-.. image:: https://img.shields.io/github/license/inveniosoftware/flask-notifications.svg
-        :target: https://github.com/inveniosoftware/flask-notifications/blob/master/LICENSE
+.. image:: https://travis-ci.org/inveniosoftware/flask-menu.png?branch=master
+    :target: https://travis-ci.org/inveniosoftware/flask-menu
+.. image:: https://coveralls.io/repos/inveniosoftware/flask-menu/badge.png?branch=master
+    :target: https://coveralls.io/r/inveniosoftware/flask-menu
+.. image:: https://pypip.in/v/Flask-Menu/badge.png
+    :target: https://pypi.python.org/pypi/Flask-Menu/
+.. image:: https://pypip.in/d/Flask-Menu/badge.png
+    :target: https://pypi.python.org/pypi/Flask-Menu/
 
 About
 =====
-
-Flask-Notifications is a Flask extension that provides generic notification
-framework.
+Flask-Menu is a Flask extension that adds support for generating
+menus.
 
 Installation
 ============
+Flask-Menu is on PyPI so all you need is: ::
 
-Flask-Notifications is on PyPI so all you need is: ::
-
-    pip install Flask-Notifications
+    pip install Flask-Menu
 
 Documentation
 =============
-
-Documentation is readable at http://flask-notifications.readthedocs.org or can
-be build using Sphinx: ::
+Documentation is readable at http://flask-menu.readthedocs.org or can be build using Sphinx: ::
 
     git submodule init
     git submodule update
@@ -51,7 +33,6 @@ be build using Sphinx: ::
 
 Testing
 =======
-
 Running the test suite is as simple as: ::
 
     python setup.py test

@@ -1,0 +1,35 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of Flask-Menu
+# Copyright (C) 2013, 2014, 2015 CERN.
+#
+# Flask-Menu is free software; you can redistribute it and/or modify
+# it under the terms of the Revised BSD License; see LICENSE file for
+# more details.
+
+sudo: false
+
+language: python
+
+python:
+  - "2.6"
+  - "2.7"
+  - "3.3"
+  - "3.4"
+
+install:
+  - pip install --upgrade pip
+  - pip install coveralls pep257
+  - pip install pytest pytest-pep8 pytest-cov pytest-cache
+  - pip install -e .[docs]
+
+script:
+  - pep257 flask_notifications
+  - "sphinx-build -qnNW docs docs/_build/html"
+  - python setup.py test
+
+after_success:
+  - coveralls
+
+notifications:
+  email: false
