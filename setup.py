@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 #
-# This file is part of Flask-Menu
-# Copyright (C) 2013, 2014, 2015 CERN.
+# This file is part of Flask-Notifications
+# Copyright (C) 2015 CERN.
 #
-# Flask-Menu is free software; you can redistribute it and/or modify
+# Flask-Notifications is free software; you can redistribute it and/or modify
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
@@ -16,7 +16,6 @@ from setuptools.command.test import test as TestCommand
 
 
 class PyTest(TestCommand):
-
     user_options = [('pytest-args=', 'a', 'Arguments to pass to py.test')]
 
     def initialize_options(self):
@@ -40,6 +39,7 @@ class PyTest(TestCommand):
         errno = pytest.main(self.pytest_args)
         sys.exit(errno)
 
+
 # Get the version string. Cannot be done with import!
 with open(os.path.join('flask_notifications', 'version.py'), 'rt') as f:
     version = re.search(
@@ -48,6 +48,8 @@ with open(os.path.join('flask_notifications', 'version.py'), 'rt') as f:
     ).group('version')
 
 tests_require = [
+    'flask-mail',
+    'flask-email'
     'pytest-cache>=1.0',
     'pytest-cov>=1.8.0',
     'pytest-pep8>=1.0.6',
@@ -63,7 +65,7 @@ setup(
     author='jvican',
     author_email='info@invenio-software.org',
     description='Flask-Notifications is a Flask extension that adds support '
-        'for notifications.',
+                'for notifications.',
     long_description=open('README.rst').read(),
     packages=['flask_notifications'],
     zip_safe=False,
@@ -73,10 +75,13 @@ setup(
         'Flask',
         'six',
         'celery[redis]',
-        'Flask-Mail'
+        'gevent',
+        'sse'
     ],
     extras_require={
         'docs': ['sphinx'],
+        'flask-email': ['Flask-Email'],
+        'flask-mail': ['Flask-Mail']
     },
     tests_require=tests_require,
     cmdclass={'test': PyTest},
@@ -95,6 +100,6 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
-        'Development Status :: 5 - Production/Stable'
+        'Development Status :: 1 - Planning'
     ],
 )

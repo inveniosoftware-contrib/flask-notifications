@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 #
-# This file is part of Flask-Menu
-# Copyright (C) 2013, 2014, 2015 CERN.
+# This file is part of Flask-Notifications
+# Copyright (C) 2015 CERN.
 #
-# Flask-Menu is free software; you can redistribute it and/or modify
+# Flask-Notifications is free software; you can redistribute it and/or modify
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
@@ -13,40 +13,40 @@ Those menus can be then displayed using templates.
 """
 
 from celery import Celery
-
-from flask import Blueprint, current_app, request, url_for, Response
-from flask.ext.mail import Mail
-from redis import StrictRedis, Redis
-
+from flask import current_app, Response
+from redis import StrictRedis
 from werkzeug.local import LocalProxy
-from flask.ext.notifications.consumers import Consumers
-from flask.ext.notifications.event import Event, ExtendedJSONEncoder
-from flask.ext.notifications.ssenotifier import SseNotifier
 
+from flask.ext.notifications.consumers.consumers import Consumers
+from flask.ext.notifications.event import Event, ExtendedJSONEncoder
+from flask.ext.notifications.consumers.push.ssenotifier import SseNotifier
 from .version import __version__
 
 
 class NotificationService(object):
     """Flask extension implementing a Notification service."""
 
-    def __init__(self, app=None, celery=None, redis=None):
+    def __init__(self, app=None, celery=None, redis=None, email_dependency=None):
         """
         Initializer of notification service
 
         :param app: Application to wrap
         :param celery: Optional celery instance to be used (it must be already set up with the proper config)
         :param redis: Optional redis instance to be used (it must be already set up with the proper config)
+        :param email_dependency: Instance of EmailDependency with the function to send the emails usign different
+                dependencies
         """
         self.app = app
         self.mail = None
-        self.celery = celery
-        self.redis = redis
-        self.notifier_response = None
+        self.celery = None
+        self.redis = None
         self._consumers = None
-        if app is not None:
-            self.init_app(app, celery)
+        self.email_dependency = None
 
-    def init_app(self, app, celery=None, redis=None):
+        if app is not None:
+            self.init_app(app, celery, redis, email_dependency)
+
+    def init_app(self, app, celery=None, redis=None, email_dependency=None):
         """Initialization of the Flask-notifications extension."""
         self.app = app
         self.app.json_encoder = ExtendedJSONEncoder
@@ -57,37 +57,36 @@ class NotificationService(object):
         if 'notification_service' in app.extensions:
             raise RuntimeError("Flask notification extension is already initialized.")
 
-        # Flask-Mail dependency
-        if 'mail' not in app.extensions:
-            self.mail = Mail(app)
-        else:
-            self.mail = app.extensions['mail']
-
         # Celery dependency
         if celery is None:
             self.celery = Celery()
             self.celery.conf.update(app.config)
+        else:
+            self.celery = celery
 
-        # Redis (publisher-subscriber feature) dependency
+        # Redis dependency (publisher-subscriber feature for SSE)
         if redis is None:
-            self.redis = Redis()
-
-        pubsub = self.redis.pubsub()
-        self.notifier_response = Response(
-            SseNotifier(pubsub),
-            mimetype='text/event-stream'
-        )
+            self.redis = StrictRedis()
+        else:
+            self.redis = redis
 
         app.extensions['notification_service'] = self
         app.context_processor(lambda: dict(current_notification_service=current_notifications))
 
-        self._consumers = Consumers(self.mail, self.celery, self.redis)
+        self.email_dependency = email_dependency
+        self._consumers = Consumers(self.celery, self.redis, self.email_dependency)
 
-    def notify(self, event_json):
+    def notify_all(self, event_json):
         event = Event.from_json(event_json)
 
         for consumer in self._consumers.all:
             consumer(event)
+
+    def create_push_notifier(self):
+        return Response(
+            SseNotifier(self.redis.pubsub()),
+            mimetype='text/event-stream'
+        )
 
     @staticmethod
     def root():
@@ -112,9 +111,7 @@ def notify(event_json):
         """Decorator of a view function that send notifications to the consumers
         in an asynchronous way."""
         event = Event.from_json(event_json)
-
-        for consumer in current_notifications._consumers.all:
-            consumer.delay(event)
+        current_notifications.notify_all(event)
 
         return f
 

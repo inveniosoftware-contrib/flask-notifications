@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 #
-# This file is part of Flask-Menu
+# This file is part of Flask-Notifications
 # Copyright (C) 2015 CERN.
 #
-# Flask-Menu is free software; you can redistribute it and/or modify
+# Flask-Notifications is free software; you can redistribute it and/or modify
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
@@ -24,14 +24,20 @@ RUN pip install 'coverage<4.0a1' \
 WORKDIR /code
 ADD . /code
 
-# Install Flask-Menu:
+# Install Flask-Notifications:
 RUN pip install -e .[docs]
 
-# Run container as user `flaskmenu` with UID `1000`, which should match
+# Install extra dependencies needed in order to run Flask-Notifications
+# This should be done by specifying which mail extension you want to use
+# e.g. installing flask-notifications[mail] will use -> flask-mail
+# e.g. installing flask-notifications[email] will use -> flask-email
+RUN pip install flask-mail flask-email requests
+
+# Run container as user `flasknotifications` with UID `1000`, which should match
 # current host user in most situations:
-RUN adduser --uid 1000 --disabled-password --gecos '' flaskmenu && \
-    chown -R flaskmenu:flaskmenu /code
+RUN adduser --uid 1000 --disabled-password --gecos '' flasknotifications && \
+    chown -R flasknotifications:flasknotifications /code
 
 # Start simple example application:
-USER flaskmenu
-CMD  ["python", "examples/simple/app.py"]
+USER flasknotifications
+CMD  ["python", "examples/simple_flaskmail/app.py"]

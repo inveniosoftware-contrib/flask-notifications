@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 #
-# This file is part of Flask-Menu
-# Copyright (C) 2013, 2014 CERN.
+# This file is part of Flask-Notifications
+# Copyright (C) 2015 CERN.
 #
-# Flask-Menu is free software; you can redistribute it and/or modify
+# Flask-Notifications is free software; you can redistribute it and/or modify
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
@@ -91,17 +91,17 @@ qthelp:
 	@echo
 	@echo "Build finished; now you can run "qcollectiongenerator" with the" \
 	      ".qhcp project file in $(BUILDDIR)/qthelp, like this:"
-	@echo "# qcollectiongenerator $(BUILDDIR)/qthelp/Flask-Menu.qhcp"
+	@echo "# qcollectiongenerator $(BUILDDIR)/qthelp/Flask-Notifications.qhcp"
 	@echo "To view the help file:"
-	@echo "# assistant -collectionFile $(BUILDDIR)/qthelp/Flask-Menu.qhc"
+	@echo "# assistant -collectionFile $(BUILDDIR)/qthelp/Flask-Notifications.qhc"
 
 devhelp:
 	$(SPHINXBUILD) -b devhelp $(ALLSPHINXOPTS) $(BUILDDIR)/devhelp
 	@echo
 	@echo "Build finished."
 	@echo "To view the help file:"
-	@echo "# mkdir -p $$HOME/.local/share/devhelp/Flask-Menu"
-	@echo "# ln -s $(BUILDDIR)/devhelp $$HOME/.local/share/devhelp/Flask-Menu"
+	@echo "# mkdir -p $$HOME/.local/share/devhelp/Flask-Notifications"
+	@echo "# ln -s $(BUILDDIR)/devhelp $$HOME/.local/share/devhelp/Flask-Notifications"
 	@echo "# devhelp"
 
 epub:

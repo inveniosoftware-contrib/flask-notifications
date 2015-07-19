@@ -1,3 +1,11 @@
+#
+# This file is part of Flask-Notifications
+# Copyright (C) 2015 CERN.
+#
+# Flask-Notifications is free software; you can redistribute it and/or modify
+# it under the terms of the Revised BSD License; see LICENSE file for
+# more details.
+
 from flask.json import JSONEncoder, JSONDecoder, loads
 
 
@@ -32,7 +40,7 @@ class Event(object):
         return event
 
     def __str__(self):
-        return "Event {0}({1}): {2}".format(self.event_id, self.title, self.body)
+        return "Event {0}({1}): {2}\n".format(self.event_id, self.title, self.body)
 
 
 class ExtendedJSONEncoder(JSONEncoder):

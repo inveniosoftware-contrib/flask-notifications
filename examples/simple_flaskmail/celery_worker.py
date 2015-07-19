@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # This file is part of Flask-Notifications
 # Copyright (C) 2015 CERN.
@@ -7,6 +6,7 @@
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
+from app import celery, app
+from flask.ext.notifications import consumers
 
-[pytest]
-addopts = --clearcache --pep8 --ignore=docs --cov=flask_notifications --cov-report=term-missing tests flask_notifications
+app.app_context().push()

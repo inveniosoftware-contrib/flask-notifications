@@ -1,14 +1,20 @@
-from flask.ext.mail import Message
+#
+# This file is part of Flask-Notifications
+# Copyright (C) 2015 CERN.
+#
+# Flask-Notifications is free software; you can redistribute it and/or modify
+# it under the terms of the Revised BSD License; see LICENSE file for
+# more details.
 
 
 class Consumers(object):
-    def __init__(self, mail, celery, redis):
-        self.mail = mail
+    def __init__(self, celery, redis, email_dependency):
         self.celery = celery
         self.redis = redis
+        self.send_email_from_event = email_dependency.send_function()
+
         self.__default_filename = "events.log"
-        self.__default_permission = "w+"
-        self.__default_email_account = "invnotifications@gmail.com"
+        self.__default_permission = "a+"
 
         # Adding all the internal functions that actually are tasks (both async and sync)
         self.all = [self.email(), self.log(), self.push()]
@@ -18,13 +24,10 @@ class Consumers(object):
         :return: Asynchronous task that send an email using Flask-Mail (SMTP)
         and a default gmail account.
         """
+
         @self.celery.task()
         def send_email(event):
-            message = Message(subject="Event {0}".format(event.event_id),
-                              sender=self.__default_email_account,
-                              recipients=[self.__default_email_account],
-                              body=str(event))
-            self.mail.send(message)
+            self.send_email_from_event(event)
 
         return send_email.delay
 
@@ -32,6 +35,7 @@ class Consumers(object):
         """
         :return: Asynchronous task that logs to a file the different events.
         """
+
         @self.celery.task()
         def write_to_file(event):
             f = open(self.__default_filename, self.__default_permission)
@@ -47,7 +51,8 @@ class Consumers(object):
 
         :return: Synchronous function that push a notification to a channel
         """
+
         def push(event):
-            self.redis.publish("test", "This is a test")
+            self.redis.publish("test", str(event))
 
         return push

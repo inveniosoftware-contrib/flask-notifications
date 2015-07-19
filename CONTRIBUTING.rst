@@ -6,7 +6,7 @@ If you find a demonstrable problem that is caused by the code of this
 library, please:
 
 1. Search for `already reported problems
-   <https://github.com/inveniosoftware/flask-menu/issues>`_.
+   <https://github.com/inveniosoftware/flask-notifications/issues>`_.
 2. Check if the issue has been fixed or is still reproducible on the
    latest `master` branch.
 3. Create an issue with **a test case**.

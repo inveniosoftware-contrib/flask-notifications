@@ -1,16 +1,49 @@
 # -*- coding: utf-8 -*-
 #
-# This file is part of Flask-Menu
+# This file is part of Flask-Notifications
 # Copyright (C) 2015 CERN.
 #
-# Flask-Menu is free software; you can redistribute it and/or modify
+# Flask-Notifications is free software; you can redistribute it and/or modify
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
 web:
   build: .
-  command: python examples/simple/app.py
+  command: python examples/simple_flaskmail/app.py
   ports:
-   - "5000:5000"
+   - "8080:8080"
   volumes:
    - .:/code
+  links:
+   - worker
+   - redis
+  env_file: .dockerenv
+
+worker:
+  build: .
+  command: celery worker -A celery_worker.celery --workdir=examples/simple_flaskmail/ -P gevent --loglevel=debug
+  env_file: .dockerenv
+  links:
+   - redis
+
+redis:
+  image: redis
+
+web2:
+  build: .
+  command: python examples/simple_flaskemail/app.py
+  ports:
+   - "8081:8081"
+  volumes:
+   - .:/code
+  links:
+   - worker
+   - redis
+  env_file: .dockerenv
+
+worker2:
+  build: .
+  command: celery worker -A celery_worker.celery --workdir=examples/simple_flaskemail/ -P gevent --loglevel=debug
+  env_file: .dockerenv
+  links:
+   - redis

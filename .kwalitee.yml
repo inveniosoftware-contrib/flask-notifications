@@ -3,7 +3,7 @@ components:
 - docker
 - docs
 - kwalitee
-- menu
+- notifications
 - setup
 - tests
 - travis
