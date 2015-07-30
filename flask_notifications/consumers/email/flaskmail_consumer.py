@@ -5,19 +5,23 @@
 # Flask-Notifications is free software; you can redistribute it and/or modify
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
+import celery
 
 from flask.ext.mail import Mail, Message
 
-from flask.ext.notifications.consumers.email.email_dependency import EmailDependency
+from flask.ext.notifications.consumers.email.email_consumer import EmailConsumer
 
 
-class FlaskMailDependency(EmailDependency):
+class FlaskMailConsumer(EmailConsumer):
     def __init__(self, mail, sender=None, recipients=None):
-        super(FlaskMailDependency, self).__init__(mail, sender, recipients)
+        super(FlaskMailConsumer, self).__init__(
+            mail, sender, recipients
+        )
 
     @classmethod
     def from_app(cls, app, sender=None, recipients=None):
-        mail = Mail(app) if 'mail' not in app.extensions else app.extensions['mail']
+        mail = Mail(app) if 'mail' not in app.extensions else \
+            app.extensions['mail']
         return cls(mail, sender, recipients)
 
     def create_message(self, event):
@@ -26,10 +30,7 @@ class FlaskMailDependency(EmailDependency):
                        recipients=self.recipients,
                        body=str(event))
 
-    def send_function(self):
-        def flaskmail_send(event):
-            with self.mail.app.app_context():
-                message = self.create_message(event)
-                self.mail.send(message)
-
-        return flaskmail_send
+    def consume(self, event, *args, **kwargs):
+        with self.mail.app.app_context():
+            message = self.create_message(event)
+            self.mail.send(message)

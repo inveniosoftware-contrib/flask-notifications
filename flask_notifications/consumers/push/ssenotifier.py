@@ -10,9 +10,9 @@ from sse import Sse
 
 
 class SseNotifier(object):
-    def __init__(self, pubsub):
+    def __init__(self, pubsub, channel):
         self.pubsub = pubsub
-        self.pubsub.subscribe("test")
+        self.pubsub.subscribe(channel)
         self.sse = Sse()
 
     def __iter__(self):

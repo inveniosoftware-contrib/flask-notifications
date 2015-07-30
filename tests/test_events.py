@@ -13,8 +13,10 @@ from flask import Flask
 from flask.json import dumps
 import os
 from redis import StrictRedis, Redis
-from flask.ext.notifications import NotificationService, Event, ExtendedJSONEncoder
-from flask.ext.notifications.consumers.email.flaskmail import FlaskMailDependency
+from flask.ext.notifications import Notifications, Event
+from flask.ext.notifications.consumers.email.flaskmail_consumer import \
+    FlaskMailConsumer
+from flask.ext.notifications.consumers.push.push_consumer import PushConsumer
 
 
 class NotificationsFlaskTestCase(unittest.TestCase):
@@ -42,19 +44,22 @@ class NotificationsFlaskTestCase(unittest.TestCase):
         }
 
         self.app.config.update(self.config)
-        self.app.json_encoder = ExtendedJSONEncoder
         self.celery = Celery()
         self.celery.conf.update(self.config)
         default_email_account = "invnotifications@gmail.com"
-        self.flaskmail = FlaskMailDependency.from_app(self.app, default_email_account, [default_email_account])
+        self.flaskmail = FlaskMailConsumer.from_app(self.app,
+                                                    default_email_account,
+                                                    [default_email_account])
         self.redis = Redis()
-        self.notifications = NotificationService(app=self.app, celery=self.celery, redis=self.redis,
-                                                 email_dependency=self.flaskmail)
+        self.notifications = Notifications(app=self.app,
+                                           celery=self.celery,
+                                           redis=self.redis)
 
     def blocking_get_message(self, pubsub):
         response = pubsub.parse_response(block=True)
         if response:
-            return pubsub.handle_message(response, ignore_subscribe_messages=False)
+            return pubsub.handle_message(response,
+                                         ignore_subscribe_messages=False)
         return None
 
     def tearDown(self):
@@ -66,8 +71,12 @@ class NotificationsFlaskTestCase(unittest.TestCase):
 class EventsTest(NotificationsFlaskTestCase):
     def test_json_parser(self):
         with self.app.test_request_context():
-            event = Event("1", "This is a test", "This is the body of a test")
-            json = dumps(event)
+            event = Event(event_id="1",
+                          event_type="type",
+                          title="This is a test",
+                          body="This is the body of a test")
+
+            json = event.to_json()
             event_from_parser = Event.from_json(json)
 
             assert event_from_parser.event_id == event.event_id
@@ -78,32 +87,47 @@ class EventsTest(NotificationsFlaskTestCase):
 class EmailNotificationTest(NotificationsFlaskTestCase):
     def test_email_delivery(self):
         with self.app.test_request_context():
-            event = Event("1", "This is a test", "This is the body of a test")
-            email_function = self.flaskmail.send_function()
+            event = Event(event_id="1",
+                          event_type="type",
+                          title="This is a test",
+                          body="This is the body of a test")
+            email_function = self.flaskmail
 
             # Testing only the synchronous execution, not async
             with self.flaskmail.mail.record_messages() as outbox:
                 email_function(event)
                 assert len(outbox) == 1
-                assert outbox[0].subject == "Event {0}".format(event.event_id)
+                assert outbox[0].subject == "Event {0}".format(
+                    event["event_id"])
                 assert outbox[0].body == str(event)
 
 
 # This test is not passing, need fix
 class PushNotificationTest(NotificationsFlaskTestCase):
     def test_push(self):
+        """
+        Testing if the predefined PushConsumer works properly.
+        """
         with self.app.test_request_context():
-            pubsub = self.notifications.create_push_notifier().response.pubsub
-            event = Event("1", "This is a test", "This is the body of a test")
-            push_function = self.notifications._consumers.push()
-            push_function(dumps(event))
+            push_function = PushConsumer(self.redis)
 
-            # Popping subscribe message. Somehow, if the option ignore_subscribe_messages
-            # is true, the other messages are not detected.
+            pubsub = self.notifications.create_push_notifier_for("user") \
+                .response.pubsub
+
+            event = Event(
+                "1", "user", "This is a test", "This is the body of a test"
+            )
+
+            push_function.consume(event)
+
+            # Popping subscribe message. Somehow, if the option
+            # ignore_subscribe_messages is true, the other messages
+            # are not detected.
             propagated_message = self.blocking_get_message(pubsub)
 
+            # Getting expected message and checking if it's the sent event
             propagated_message = self.blocking_get_message(pubsub)
-            assert propagated_message['data'] == dumps(event)
+            assert propagated_message['data'] == str(event)
 
 
 if __name__ == '__main__':

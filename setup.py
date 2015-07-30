@@ -76,7 +76,8 @@ setup(
         'six',
         'celery[redis]',
         'gevent',
-        'sse'
+        'sse',
+        'blinker'
     ],
     extras_require={
         'docs': ['sphinx'],

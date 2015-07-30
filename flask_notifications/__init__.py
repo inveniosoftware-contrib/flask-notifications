@@ -11,53 +11,60 @@
 
 Those menus can be then displayed using templates.
 """
+from blinker import signal
 
 from celery import Celery
 from flask import current_app, Response
 from redis import StrictRedis
 from werkzeug.local import LocalProxy
 
-from flask.ext.notifications.consumers.consumers import Consumers
-from flask.ext.notifications.event import Event, ExtendedJSONEncoder
+from flask.ext.notifications.event import Event
 from flask.ext.notifications.consumers.push.ssenotifier import SseNotifier
+from flask.ext.notifications.event_hub import EventHub
 from .version import __version__
 
 
-class NotificationService(object):
+class Notifications(object):
     """Flask extension implementing a Notification service."""
 
-    def __init__(self, app=None, celery=None, redis=None, email_dependency=None):
+    def __init__(self, app=None, celery=None, redis=None, redis_url=None,
+                 *args, **kwargs):
         """
         Initializer of notification service
 
         :param app: Application to wrap
-        :param celery: Optional celery instance to be used (it must be already set up with the proper config)
-        :param redis: Optional redis instance to be used (it must be already set up with the proper config)
-        :param email_dependency: Instance of EmailDependency with the function to send the emails usign different
-                dependencies
+        :param celery: Optional celery instance to be used (it must
+                        be already set up with the proper config)
+        :param redis: Optional redis instance to be used (it must be
+                        already set up with the proper config)
+        :param email_dependency: Instance of EmailDependency with the
+                        function to send the emails using different dependencies
         """
         self.app = app
         self.mail = None
         self.celery = None
         self.redis = None
-        self._consumers = None
-        self.email_dependency = None
+        self._hubs = {}
+        self._notifiers = {}
 
         if app is not None:
-            self.init_app(app, celery, redis, email_dependency)
+            self.init_app(app, celery, redis, *args, **kwargs)
 
-    def init_app(self, app, celery=None, redis=None, email_dependency=None):
+    def init_app(self, app, celery=None, redis=None, redis_url=None,
+                 *args, **kwargs):
+
         """Initialization of the Flask-notifications extension."""
         self.app = app
-        self.app.json_encoder = ExtendedJSONEncoder
 
         # Follow the Flask guidelines on usage of app.extensions
         if not hasattr(app, 'extensions'):
             app.extensions = {}
         if 'notification_service' in app.extensions:
-            raise RuntimeError("Flask notification extension is already initialized.")
+            raise RuntimeError("Flask notification extension is "
+                               "already initialized.")
 
-        # Celery dependency
+        # Celery dependency, useful to avoid the user to pass
+        # this instance when declaring an EventHub
         if celery is None:
             self.celery = Celery()
             self.celery.conf.update(app.config)
@@ -66,27 +73,56 @@ class NotificationService(object):
 
         # Redis dependency (publisher-subscriber feature for SSE)
         if redis is None:
-            self.redis = StrictRedis()
+            self.redis = StrictRedis(redis_url if redis_url is not None else "")
         else:
             self.redis = redis
 
         app.extensions['notification_service'] = self
-        app.context_processor(lambda: dict(current_notification_service=current_notifications))
 
-        self.email_dependency = email_dependency
-        self._consumers = Consumers(self.celery, self.redis, self.email_dependency)
-
-    def notify_all(self, event_json):
-        event = Event.from_json(event_json)
-
-        for consumer in self._consumers.all:
-            consumer(event)
-
-    def create_push_notifier(self):
-        return Response(
-            SseNotifier(self.redis.pubsub()),
-            mimetype='text/event-stream'
+        app.context_processor(
+            lambda: dict(current_notification_service=current_notifications)
         )
+
+    def notify(self, event_json):
+        event = Event.from_json(event_json)
+        sent = False
+
+        assigned_hub = self._hubs[event.event_type]
+        if assigned_hub is not None:
+            assigned_hub.consume(event)
+            sent = True
+
+        return sent
+
+    def create_push_notifier_for(self, event_type):
+        """
+        Create a Response that will push notifications to the client once they
+        are propagated through the system.
+        """
+        push_notifier = self._notifiers.get(event_type)
+
+        if push_notifier is None:
+            push_notifier = Response(
+                SseNotifier(self.redis.pubsub(), event_type),
+                mimetype='text/event-stream'
+            )
+
+            self._notifiers[event_type] = push_notifier
+
+        return push_notifier
+
+    def hub_for(self, signal_name):
+        """
+        Create a EventHub to register consumers that will apply only for
+        an specific type of an event.
+
+        :param signal_name: The event type you want to process
+
+        :return: An EventHub you can use to declare consumers
+        """
+        hub = EventHub(signal_name, self.celery)
+        self._hubs[signal_name] = hub
+        return hub
 
     @staticmethod
     def root():
@@ -94,31 +130,7 @@ class NotificationService(object):
         return current_app.extensions['notification_service']
 
 
-def notify(event_json):
-    """Decorator of a view function that should propagate the notification
-    to the consumers.
-
-    Example::
-
-        @notify(event_json)
-        def index():
-            pass
-
-    :param event_json: JSON representation of the event to be notified.
-    """
-
-    def decorator(f):
-        """Decorator of a view function that send notifications to the consumers
-        in an asynchronous way."""
-        event = Event.from_json(event_json)
-        current_notifications.notify_all(event)
-
-        return f
-
-    return decorator
-
-
 #: Global object that is proxy to the current application menu.
-current_notifications = LocalProxy(NotificationService.root)
+current_notifications = LocalProxy(Notifications.root)
 
-__all__ = ('current_notifications', 'notify', 'NotificationService', '__version__')
+__all__ = ('current_notifications', 'notify', 'Notifications', '__version__')

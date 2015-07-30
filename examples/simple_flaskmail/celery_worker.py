@@ -6,7 +6,7 @@
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
-from app import celery, app
+from app import celery, app, write_to_file
 from flask.ext.notifications import consumers
 
 app.app_context().push()
