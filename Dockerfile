@@ -27,10 +27,10 @@ ADD . /code
 # Install Flask-Notifications:
 RUN pip install -e .[docs]
 
-# Install extra dependencies needed in order to run Flask-Notifications
-# This should be done by specifying which mail extension you want to use
+# Install extra dependencies for the consumers in Flask-Notifications
 # e.g. installing flask-notifications[mail] will use -> flask-mail
 # e.g. installing flask-notifications[email] will use -> flask-email
+# Install both as our simple example use them
 RUN pip install flask-mail flask-email requests
 
 # Run container as user `flasknotifications` with UID `1000`, which should match
@@ -40,4 +40,4 @@ RUN adduser --uid 1000 --disabled-password --gecos '' flasknotifications && \
 
 # Start simple example application:
 USER flasknotifications
-CMD  ["python", "examples/simple_flaskmail/app.py"]
+CMD  ["python", "examples/simple/app.py"]

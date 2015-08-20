@@ -1,4 +1,3 @@
-#!/bin/sh
 #
 # This file is part of Flask-Notifications
 # Copyright (C) 2015 CERN.
@@ -7,6 +6,12 @@
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
-pep257 flask_notifications
-sphinx-build -qnNW docs docs/_build/html && \
-python setup.py test
+from datetime import datetime
+
+from flask_notifications.event_filter import EventFilter
+
+
+class Expired(EventFilter):
+
+    def filter(self, event, *args, **kwargs):
+        return event.expiration_datetime <= datetime.now()

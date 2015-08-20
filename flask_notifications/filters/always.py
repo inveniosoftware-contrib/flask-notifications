@@ -6,7 +6,10 @@
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
-from app import celery, app
-from flask.ext.notifications import consumers
+from flask_notifications.event_filter import EventFilter
 
-app.app_context().push()
+
+class Always(EventFilter):
+
+    def filter(self, event, *args, **kwargs):
+        return True

@@ -7,11 +7,10 @@
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
-"""This extension allows creation of menus organised in a tree structure.
-
-Those menus can be then displayed using templates.
+"""This extension is a Notification service that allows to send
+notifications given some events as an input. The notifications arrive
+to the users using predefined or custom consumers.
 """
-from blinker import signal
 
 from celery import Celery
 from flask import current_app, Response
@@ -25,20 +24,20 @@ from .version import __version__
 
 
 class Notifications(object):
+
     """Flask extension implementing a Notification service."""
 
-    def __init__(self, app=None, celery=None, redis=None, redis_url=None,
-                 *args, **kwargs):
-        """
-        Initializer of notification service
+    def __init__(self, app=None, celery=None, redis=None,
+                 redis_url=None, *args, **kwargs):
+        """Initializer of the notification service.
 
-        :param app: Application to wrap
+        :param app: Application to extend
         :param celery: Optional celery instance to be used (it must
                         be already set up with the proper config)
         :param redis: Optional redis instance to be used (it must be
                         already set up with the proper config)
-        :param email_dependency: Instance of EmailDependency with the
-                        function to send the emails using different dependencies
+        :param redis_url: If no redis instance is passed, initialise
+                          a new one with the given redis_url
         """
         self.app = app
         self.mail = None
@@ -52,14 +51,13 @@ class Notifications(object):
 
     def init_app(self, app, celery=None, redis=None, redis_url=None,
                  *args, **kwargs):
-
         """Initialization of the Flask-notifications extension."""
         self.app = app
 
         # Follow the Flask guidelines on usage of app.extensions
         if not hasattr(app, 'extensions'):
             app.extensions = {}
-        if 'notification_service' in app.extensions:
+        if 'notifications' in app.extensions:
             raise RuntimeError("Flask notification extension is "
                                "already initialized.")
 
@@ -73,61 +71,60 @@ class Notifications(object):
 
         # Redis dependency (publisher-subscriber feature for SSE)
         if redis is None:
-            self.redis = StrictRedis(redis_url if redis_url is not None else "")
+            self.redis = StrictRedis(redis_url if redis_url else "")
         else:
             self.redis = redis
 
-        app.extensions['notification_service'] = self
+        app.extensions['notifications'] = self
 
         app.context_processor(
-            lambda: dict(current_notification_service=current_notifications)
+            lambda: dict(current_notifications=current_notifications)
         )
 
-    def notify(self, event_json):
+    def send(self, event_json):
+        """Send an event through all the hubs."""
         event = Event.from_json(event_json)
-        sent = False
 
-        assigned_hub = self._hubs[event.event_type]
-        if assigned_hub is not None:
-            assigned_hub.consume(event)
-            sent = True
+        for hub_name, hub in self._hubs.iteritems():
+            # Be careful, operation order matters here
+            hub.consume(event)
 
-        return sent
-
-    def create_push_notifier_for(self, event_type):
+    def push_notifier_for(self, hub_id):
         """
-        Create a Response that will push notifications to the client once they
-        are propagated through the system.
-        """
-        push_notifier = self._notifiers.get(event_type)
+        Create a Flask Response that will push notifications
+        to the client once they are propagated through the system.
 
-        if push_notifier is None:
+        :return: A :class Response: that push new notifications
+                 to the browsers
+        """
+        push_notifier = self._notifiers.get(hub_id)
+
+        if not push_notifier:
             push_notifier = Response(
-                SseNotifier(self.redis.pubsub(), event_type),
+                SseNotifier(self.redis.pubsub(), hub_id),
                 mimetype='text/event-stream'
             )
 
-            self._notifiers[event_type] = push_notifier
+            self._notifiers[hub_id] = push_notifier
 
         return push_notifier
 
-    def hub_for(self, signal_name):
+    def create_hub(self):
         """
-        Create a EventHub to register consumers that will apply only for
-        an specific type of an event.
+        Create a EventHub to aggregate certain types of events that will
+        be consumed by the defined consumers in the hub.
 
-        :param signal_name: The event type you want to process
-
-        :return: An EventHub you can use to declare consumers
+        :return: An :class EventHub: to register consumers and filters
         """
-        hub = EventHub(signal_name, self.celery)
-        self._hubs[signal_name] = hub
+        hub = EventHub(self.celery)
+        self._hubs[hub.hub_id] = hub
+
         return hub
 
     @staticmethod
     def root():
         """Return a root entry of current application's menu."""
-        return current_app.extensions['notification_service']
+        return current_app.extensions['notifications']
 
 
 #: Global object that is proxy to the current application menu.

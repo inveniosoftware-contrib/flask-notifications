@@ -18,6 +18,7 @@ class SseNotifier(object):
     def __iter__(self):
         for message in self.pubsub.listen():
             if message['type'] == 'message':
+                print(str(message))
                 self.sse.add_message("", message['data'])
                 for data in self.sse:
                     yield data.encode('u8')

@@ -15,7 +15,7 @@
         <script type="text/javascript">
             $(document).ready(
                     function() {
-                        sse = new EventSource('/notifications');
+                        sse = new EventSource('/user_notifications');
                         sse.onmessage = function(message) {
                             console.log('A notification has arrived!');
                             $('#output').append('<li>'+message.data+'</li>');

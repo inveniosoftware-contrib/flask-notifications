@@ -9,7 +9,7 @@
 
 web:
   build: .
-  command: python examples/simple_flaskmail/app.py
+  command: python examples/simple/app.py
   ports:
    - "8080:8080"
   volumes:
@@ -21,29 +21,10 @@ web:
 
 worker:
   build: .
-  command: celery worker -A celery_worker.celery --workdir=examples/simple_flaskmail/ -P gevent --loglevel=debug
+  command: celery worker -A celery_worker.celery --workdir=examples/simple/ -P gevent --loglevel=debug
   env_file: .dockerenv
   links:
    - redis
 
 redis:
   image: redis
-
-web2:
-  build: .
-  command: python examples/simple_flaskemail/app.py
-  ports:
-   - "8081:8081"
-  volumes:
-   - .:/code
-  links:
-   - worker
-   - redis
-  env_file: .dockerenv
-
-worker2:
-  build: .
-  command: celery worker -A celery_worker.celery --workdir=examples/simple_flaskemail/ -P gevent --loglevel=debug
-  env_file: .dockerenv
-  links:
-   - redis

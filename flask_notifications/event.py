@@ -7,34 +7,86 @@
 # more details.
 
 from UserDict import UserDict
+import uuid
+import time
 
 from flask.json import loads, dumps
 
 
 class Event(UserDict):
+
     """
-    This class models an event (notification) used to signal to the API which behaviour
-    should adopt.
+    An Event is a signal used to specify a certain behaviour
+    and is used to model types of notifications.
+
+    It's fully customizable and allow to represent the business model
+    by extending the event.
     """
 
-    def __init__(self, event_id, event_type, title, body, **kwargs):
+    def __init__(self, event_id, event_type, title, body,
+                 timestamp=None, sender=None, receivers=None,
+                 tags=None, expiration_datetime=None, **kwargs):
+
+        """Initialize event and default non-existing values."""
+
+        # Randomizing ids if not present
+        if not event_id:
+            # Make a string out of a randomized uuid
+            event_id = str(uuid.uuid4())
+
+        if not timestamp:
+            timestamp = time.time()
+
         d = {"event_id": event_id,
              "event_type": event_type,
              "title": title,
-             "body": body}
+             "body": body,
+             "timestamp": timestamp,
+             "sender": sender,
+             "receivers": receivers,
+             "tags": tags,
+             "expiration_datetime": expiration_datetime}
 
         UserDict.__init__(self, dict=d, **kwargs)
 
-        self.event_id = self["event_id"]
-        self.event_type = self["event_type"]
-        self.title = self["title"]
-        self.body = self["body"]
+    @property
+    def event_id(self):
+        return self["event_id"]
+
+    @property
+    def event_type(self):
+        return self["event_type"]
+
+    @property
+    def title(self):
+        return self["title"]
+
+    @property
+    def body(self):
+        return self["body"]
+
+    @property
+    def timestamp(self):
+        return self["timestamp"]
+
+    @property
+    def sender(self):
+        return self["sender"]
+
+    @property
+    def receivers(self):
+        return self["receivers"]
+
+    @property
+    def tags(self):
+        return self["tags"]
+
+    @property
+    def expiration_datetime(self):
+        return self["expiration_datetime"]
 
     def __str__(self):
-        return "Event {0}({1}): {2}\n".format(self.event_id,
-                                              self.event_type,
-                                              self.title,
-                                              self.body)
+        return self.to_json()
 
     @classmethod
     def from_json(cls, event_json):

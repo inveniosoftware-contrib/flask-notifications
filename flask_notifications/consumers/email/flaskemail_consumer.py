@@ -5,11 +5,8 @@
 # Flask-Notifications is free software; you can redistribute it and/or modify
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
-import celery
-
 from flask.ext.email import EmailMessage, SMTPMail
-
-from flask.ext.notifications.consumers.email.email_consumer import EmailConsumer
+from flask_notifications.consumers.email.email_consumer import EmailConsumer
 
 
 class FlaskEmailConsumer(EmailConsumer):
@@ -45,4 +42,4 @@ class FlaskEmailConsumer(EmailConsumer):
     def consume(self, event, *args, **kwargs):
         with self.mail.app.app_context():
             email = self.create_message(event)
-            email.send(self.mail)
+            return email.send(self.mail)

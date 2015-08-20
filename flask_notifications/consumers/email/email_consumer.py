@@ -7,7 +7,7 @@
 # more details.
 
 import abc
-from flask.ext.notifications.consumers.consumer import Consumer
+from flask_notifications.consumers.consumer import Consumer
 
 
 class EmailConsumer(Consumer):

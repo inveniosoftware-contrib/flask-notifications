@@ -1,0 +1,10 @@
+Event 1(user): This is a test
+Event 1(user): This is a test
+Event 1(user): This is a test
+Event 1(user): This is a test
+Event 1(user): This is a test
+Event 1(user): This is a test
+Event 1(user): This is a test
+Event 1(user): This is a test
+Event 1(user): This is a test
+{"body": "This is the body of the test", "event_id": "81759c76-356b-491c-941e-14fa76493b91", "event_type": "user", "expiration_datetime": null, "receivers": ["jiri", "tibor"], "sender": "jorge", "tags": null, "timestamp": 1440089840.209848, "title": "This is a user test"}
