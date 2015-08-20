@@ -52,7 +52,9 @@ tests_require = [
     'pytest-cov>=1.8.0',
     'pytest-pep8>=1.0.6',
     'pytest>=2.6.1',
-    'coverage<4.0a1'
+    'coverage<4.0a1',
+    'flask-email>=1.4.4',
+    'flask-mail>=0.9.1'
 ]
 
 setup(
@@ -61,9 +63,9 @@ setup(
     url='https://github.com/inveniosoftware/flask-notifications',
     license='BSD',
     author='jvican',
-    author_email='info@invenio-software.org',
+    author_email='jorgevc@fastmail.es',
     description='Flask-Notifications is a Flask extension that adds support '
-                'for notifications.',
+                'for real-time notifications.',
     long_description=open('README.rst').read(),
     packages=['flask_notifications'],
     zip_safe=False,
