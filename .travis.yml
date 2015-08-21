@@ -21,6 +21,9 @@ install:
   - pip install pytest pytest-pep8 pytest-cov pytest-cache
   - pip install -e .[docs]
 
+services:
+  - redis
+
 script:
   - pep257 flask_notifications
   - "sphinx-build -qnNW docs docs/_build/html"
