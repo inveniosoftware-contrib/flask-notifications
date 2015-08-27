@@ -15,27 +15,28 @@ Usage:
   $ firefox http://0.0.0.0:8080/notify_user
   $ firefox http://0.0.0.0:8080/notify_system
 """
-import os
 
+import os
 import gevent
 import gevent.monkey
+
 from datetime import datetime
-from celery import Celery
 from flask import Flask, render_template
 from redis import StrictRedis
 from gevent.pywsgi import WSGIServer
 
+from flask_celeryext import FlaskCeleryExt
 from flask_notifications import Notifications, Event
 from flask_notifications.consumers.push.push_consumer import PushConsumer
-from flask_notifications.consumers.email.flaskmail_consumer import \
-    FlaskMailConsumer
-from flask_notifications.consumers.email.flaskemail_consumer import \
-    FlaskEmailConsumer
 from flask_notifications.filters.before_date import BeforeDate
 from flask_notifications.filters.with_sender import WithSender
 from flask_notifications.filters.with_receivers import WithReceivers
 from flask_notifications.filters.with_event_type import WithEventType
 from flask_notifications.filters.not_filter import Not
+from flask_notifications.consumers.email.flaskemail_consumer \
+    import FlaskEmailConsumer
+from flask_notifications.consumers.email.flaskmail_consumer \
+    import FlaskMailConsumer
 
 gevent.monkey.patch_all()
 
@@ -74,20 +75,16 @@ config = {
 }
 
 app.config.update(config)
-celery = Celery(__name__)
 
-# Important step: Celery must be configured when passed
-# to the Notifications extension
-celery.conf.update(config)
-
+celery = FlaskCeleryExt(app).celery
 redis = StrictRedis(host=redis_host)
 
 # Define our notifications extension
 notifications = Notifications(app=app, celery=celery, redis=redis)
 
 # Define the hubs for specific types of event
-user_hub = notifications.create_hub()
-system_hub = notifications.create_hub()
+user_hub = notifications.create_hub("UserHub")
+system_hub = notifications.create_hub("EventHub")
 user_hub_id = user_hub.hub_id
 system_hub_id = system_hub.hub_id
 
@@ -114,7 +111,7 @@ email_consumer = FlaskEmailConsumer.from_app(
 
 # Register one or more predefined consumers
 system_hub.register_consumers(
-    [push_consumer, mail_consumer, email_consumer]
+    [mail_consumer, email_consumer]
 )
 
 # Register filters for the hubs
@@ -138,7 +135,8 @@ def index():
 @app.route('/notify_user')
 def notify_user_event():
     """Sends a notification of type user"""
-    event = Event(event_id=None, event_type="user", title="This is a user test",
+    event = Event(event_id=None, event_type="user",
+                  title="This is a user test",
                   body="This is the body of the test", sender="jorge",
                   receivers=["jiri", "tibor"])
     notifications.send(event.to_json())

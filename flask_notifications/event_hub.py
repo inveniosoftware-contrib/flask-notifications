@@ -6,21 +6,19 @@
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
-from blinker import Signal
-import uuid
+from blinker import signal
 
 from flask_notifications.filters.always import Always
 
 
 class EventHub:
-    def __init__(self, celery):
+    def __init__(self, hub_alias, celery):
         """
         Inits the Hub with a the name of the hub and an instance
         of Celery to perform async execution in the consumers.
         """
-        self.hub_id = "event-hub-{0}".format(uuid.uuid4())
-        # Anonymous signal
-        self.signal = Signal()
+        self.hub_id = "event-hub-{}".format(hub_alias)
+        self.signal = signal(self.hub_id)
 
         self._hub_event_filter = Always()
         self.celery = celery

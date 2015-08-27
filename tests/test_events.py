@@ -201,7 +201,7 @@ class PushNotificationTest(NotificationsFlaskTestCase):
         """Test if PushConsumer works properly."""
 
         with self.app.test_request_context():
-            user_hub = EventHub(self.celery)
+            user_hub = EventHub("TestPush", self.celery)
             user_hub_id = user_hub.hub_id
             push_function = PushConsumer(self.redis, user_hub_id)
 
@@ -250,7 +250,7 @@ class EventHubAndFiltersTest(NotificationsFlaskTestCase):
     def setUp(self):
         super(EventHubAndFiltersTest, self).setUp()
 
-        self.event_hub = EventHub(self.celery)
+        self.event_hub = EventHub("TestFilters", self.celery)
         self.event_hub_id = self.event_hub.hub_id
 
     def test_register_consumer(self):

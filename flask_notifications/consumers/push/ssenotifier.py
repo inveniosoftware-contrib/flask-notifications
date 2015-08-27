@@ -10,15 +10,14 @@ from sse import Sse
 
 
 class SseNotifier(object):
-    def __init__(self, pubsub, channel):
-        self.pubsub = pubsub
-        self.pubsub.subscribe(channel)
+    def __init__(self, redis, channel):
         self.sse = Sse()
+        self.pubsub = redis.pubsub()
+        self.pubsub.subscribe(channel)
 
     def __iter__(self):
         for message in self.pubsub.listen():
             if message['type'] == 'message':
-                print(str(message))
                 self.sse.add_message("", message['data'])
                 for data in self.sse:
                     yield data.encode('u8')

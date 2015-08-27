@@ -73,6 +73,7 @@ setup(
     platforms='any',
     install_requires=[
         'Flask',
+        'flask-celeryext',
         'six',
         'celery[redis]',
         'gevent',
