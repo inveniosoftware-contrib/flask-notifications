@@ -74,11 +74,11 @@ setup(
     install_requires=[
         'Flask',
         'flask-celeryext',
-        'six',
-        'celery[redis]',
+        'redis',
         'gevent',
         'sse',
-        'blinker'
+        'blinker',
+        'six'
     ],
     extras_require={
         'docs': ['sphinx'],
@@ -102,6 +102,6 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
-        'Development Status :: 1 - Planning'
+        'Development Status :: 4 - Beta'
     ],
 )

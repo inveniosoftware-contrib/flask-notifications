@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # This file is part of Flask-Notifications
 # Copyright (C) 2015 CERN.
@@ -6,17 +7,16 @@
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
-from UserDict import UserDict
 import uuid
 import time
 
+from UserDict import UserDict
 from flask.json import loads, dumps
 
 
 class Event(UserDict):
 
-    """
-    An Event is a signal used to specify a certain behaviour
+    """An Event is a signal used to specify a certain behaviour
     and is used to model types of notifications.
 
     It's fully customizable and allow to represent the business model
@@ -24,8 +24,8 @@ class Event(UserDict):
     """
 
     def __init__(self, event_id, event_type, title, body,
-                 timestamp=None, sender=None, receivers=None,
-                 tags=None, expiration_datetime=None, **kwargs):
+                 timestamp=None, sender=None, receivers=[],
+                 tags=[], expiration_datetime=None, **kwargs):
 
         """Initialize event and default non-existing values."""
 

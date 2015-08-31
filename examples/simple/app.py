@@ -26,7 +26,8 @@ from redis import StrictRedis
 from gevent.pywsgi import WSGIServer
 
 from flask_celeryext import FlaskCeleryExt
-from flask_notifications import Notifications, Event
+from flask_notifications import Notifications
+from flask_notifications.event import Event
 from flask_notifications.consumers.push.push_consumer import PushConsumer
 from flask_notifications.filters.before_date import BeforeDate
 from flask_notifications.filters.with_sender import WithSender
@@ -42,36 +43,40 @@ gevent.monkey.patch_all()
 
 app = Flask(__name__)
 
-# Get env variable and extract host from it
-redis_url = os.environ["REDIS_URL"]
+# Get environment variables
+default_redis_url = "redis://localhost:6379/0"
+redis_url = os.environ["REDIS_URL"] or default_redis_url
 redis_host = redis_url.split(":")[1][2:]
+smtp_server = os.environ["SMTP_SERVER"] or "0.0.0.0"
 
 default_email_account = "invnotifications@gmail.com"
 
 config = {
     # Email configuration for Flask-Mail
-    "MAIL_SERVER": "smtp.gmail.com",
-    "MAIL_PORT": "587",
-    "MAIL_USE_TLS": True,
-    "MAIL_USE_SSL": False,
-    "MAIL_USERNAME": default_email_account,
-    "MAIL_PASSWORD": os.environ["INVENIO_GMAIL_PASSWORD"],
+    "MAIL_SERVER": smtp_server,
+    "MAIL_PORT": "25",
+    "MAIL_USERNAME": "",
+    "MAIL_PASSWORD": "",
+    "MAIL_DEBUG": True,
 
     # Email configuration for Flask-Email
-    "EMAIL_HOST": "smtp.gmail.com",
-    "EMAIL_PORT": "587",
-    "EMAIL_HOST_USER": default_email_account,
-    "EMAIL_HOST_PASSWORD": os.environ["INVENIO_GMAIL_PASSWORD"],
-    "EMAIL_USE_TLS": True,
-    "EMAIL_USE_SSL": False,
+    "EMAIL_HOST": smtp_server,
+    "EMAIL_PORT": "25",
+    "EMAIL_HOST_USER": "",
+    "EMAIL_HOST_PASSWORD": "",
 
     "DEBUG": True,
     "CELERY_BROKER_URL": redis_url,
     "CELERY_RESULT_BACKEND": redis_url,
     "BROKER_TRANSPORT": "redis",
     "BROKER_URL": redis_url,
-    "CELERY_ACCEPT_CONTENT": ["pickle", "json"],
+    "CELERY_ACCEPT_CONTENT": ["application/json"],
+    "CELERY_TASK_SERIALIZER": "json",
+    "CELERY_RESULT_SERIALIZER": "json",
     "REDIS_URL": redis_url,
+
+    # Notifications configuration
+    "PUBSUB": "flask_notifications.pubsub.redis_pubsub.RedisPubSub"
 }
 
 app.config.update(config)
@@ -80,7 +85,7 @@ celery = FlaskCeleryExt(app).celery
 redis = StrictRedis(host=redis_host)
 
 # Define our notifications extension
-notifications = Notifications(app=app, celery=celery, redis=redis)
+notifications = Notifications(app=app, celery=celery, broker=redis)
 
 # Define the hubs for specific types of event
 user_hub = notifications.create_hub("UserHub")
@@ -97,7 +102,8 @@ def write_to_file(event, *args, **kwargs):
 
 
 # Register manually a push consumer
-push_consumer = PushConsumer(redis, user_hub_id)
+pubsub = notifications.create_pubsub()
+push_consumer = PushConsumer(pubsub, user_hub_id)
 user_hub.register_consumer(push_consumer)
 
 # Create two independent email consumers
@@ -139,7 +145,7 @@ def notify_user_event():
                   title="This is a user test",
                   body="This is the body of the test", sender="jorge",
                   receivers=["jiri", "tibor"])
-    notifications.send(event.to_json())
+    notifications.send(event)
 
     return "Sent event"
 
@@ -149,7 +155,7 @@ def notify_system_event():
     """Sends a notification of type system"""
     event = Event(None, "system", "This is a system test",
                   "This is the body of the test", sender="system")
-    notifications.send(event.to_json())
+    notifications.send(event)
 
     return "Sent event"
 
@@ -157,13 +163,13 @@ def notify_system_event():
 @app.route("/user_notifications")
 def user_notifier():
     """Propagate and push notifications"""
-    return notifications.push_notifier_for(user_hub_id)
+    return notifications.flask_sse_notifier(user_hub_id)
 
 
 @app.route("/system_notifications")
 def system_notifier():
     """Propagate and push notifications"""
-    return notifications.push_notifier_for(system_hub_id)
+    return notifications.flask_sse_notifier(system_hub_id)
 
 
 if __name__ == '__main__':

@@ -8,11 +8,12 @@
 
 from abc import ABCMeta, abstractmethod
 
+"""This class defines a composable EventFilter."""
+
 
 class EventFilter(object):
 
-    """
-    An EventFilter is a filter that represents a certain condition
+    """An EventFilter is a filter that represents a certain condition
     that all the events have to meet.
 
     One can compose event filters with the following bitwise operators:
@@ -33,12 +34,15 @@ class EventFilter(object):
         return self.filter(event, args, kwargs)
 
     def __and__(self, other):
+        """Compose filters with &."""
         return AndFilter(self, other)
 
     def __or__(self, other):
+        """Compose filters with |."""
         return OrFilter(self, other)
 
     def __xor__(self, other):
+        """Compose filters with ^."""
         return XorFilter(self, other)
 
 
@@ -47,15 +51,17 @@ class ComposedFilter(EventFilter):
     """Interface for operators between filters."""
 
     def __init__(self, one, other):
+        """Initialise both filters."""
         self.one = one
         self.other = other
 
 
 class AndFilter(ComposedFilter):
 
-    """Filter implementing the OR logic between two filters."""
+    """Filter implementing the AND logic between two filters."""
 
     def filter(self, event, *args, **kwargs):
+        """AND logic."""
         return (self.one.__call__(event, args, kwargs) and
                 self.other.__call__(event, args, kwargs))
 
@@ -65,6 +71,7 @@ class OrFilter(ComposedFilter):
     """Filter implementing the OR logic between two filters."""
 
     def filter(self, event, *args, **kwargs):
+        """OR logic."""
         return (self.one.__call__(event, args, kwargs) or
                 self.other.__call__(event, args, kwargs))
 
@@ -74,5 +81,6 @@ class XorFilter(ComposedFilter):
     """Filter implementing the XOR logic between two filters."""
 
     def filter(self, event, *args, **kwargs):
+        """XOR logic."""
         return (self.one.__call__(event, args, kwargs) ^
                 self.other.__call__(event, args, kwargs))

@@ -12,9 +12,11 @@ from flask_notifications.filters.always import Always
 
 
 class EventHub:
+
+    "An EventHub is composed of a filter and consumers."
+
     def __init__(self, hub_alias, celery):
-        """
-        Inits the Hub with a the name of the hub and an instance
+        """Init the Hub with a the name of the hub and an instance
         of Celery to perform async execution in the consumers.
         """
         self.hub_id = "event-hub-{}".format(hub_alias)
@@ -28,11 +30,8 @@ class EventHub:
         self.registered_consumers = {}
 
     def consumer(self, celery_task_name=None):
-        """
-        Decorator that modifies the given function, register and
-        makes it asynchronous and connect the function to the signal.
-
-        :return: A `Celery Task` which wraps the given function
+        """Decorator that modifies the given function, register it
+        making it asynchronous and connect the function to the signal.
         """
         def _make_async(f):
             async_creator = self.celery.task(name=celery_task_name)
@@ -76,16 +75,14 @@ class EventHub:
             self.deregister_consumer(consumer)
 
     def filter_by(self, event_filter):
-        """
-        Filter the events by the following filter. The filter
+        """Filter the events by the following filter. The filter
         can be composed from other filters or only one.
         """
         self._hub_event_filter = event_filter
 
     def consume(self, event, *args, **kwargs):
-        """
-        Consuming the event by applying the consumers registered
+        """Consuming the event by applying the consumers registered
         for that event type.
         """
         if self._hub_event_filter(event):
-            self.signal.send(event)
+            self.signal.send(event.to_json())

@@ -3,15 +3,15 @@
 ====================
 .. currentmodule:: flask_notifications
 
-Flask-Notifications is a Flask extension that provides generic notification
-framework.
+Flask-Notifications is a Flask extension that provides a generic real-time
+notification framework. 
 
 Contents
 --------
 
 .. contents::
    :local:
-   :depth: 1
+   :depth: 2
    :backlinks: none
 
 
@@ -27,12 +27,12 @@ Flask-Notifications is on PyPI so all you need is:
     $ pip install Flask-Notifications
 
 The development version can be downloaded from `its page at GitHub
-<http://github.com/inveniosoftware/flask-menu>`_.
+<http://github.com/inveniosoftware/flask-notifications>`_.
 
 .. code-block:: console
 
-    $ git clone https://github.com/inveniosoftware/flask-menu.git
-    $ cd flask-menu
+    $ git clone https://github.com/inveniosoftware/flask-notifications.git
+    $ cd flask-notifications
     $ python setup.py develop
     $ ./run-tests.sh
 
@@ -42,6 +42,11 @@ Requirements
 Flask-Notifications has the following dependencies:
 
 * `Flask <https://pypi.python.org/pypi/Flask>`_
+* `Flask-CeleryExt <https://pypi.python.org/pypi/Flask-CeleryExt/0.1.0>`_
+* `Redis <https://pypi.python.org/pypi/redis/>`_
+* `Gevent <https://pypi.python.org/pypi/gevent/1.1b3>`_
+* `Blinker <https://pypi.python.org/pypi/blinker/1.4>`_
+* `Sse <https://pypi.python.org/pypi/sse/1.2>`_
 * `six <https://pypi.python.org/pypi/six>`_
 
 Flask-Notifications requires Python version 2.6, 2.7 or 3.3+.
@@ -56,185 +61,216 @@ This guide assumes that you have successfully installed ``Flask-Notifications``
 package already.  If not, please follow the :ref:`installation`
 instructions first.
 
-Simple Example
-^^^^^^^^^^^^^^
+Building a simple notification system
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Here is a simple Flask-Notifications usage example:
+``Flask-Notifications`` provides a simple API to build your own real-time
+notification system. In this guide, we will see how to build such a system
+easily in a few steps.
+
+First, we create the ``Flask`` application and initialise the Notifications
+extension. ``Flask-Notifications`` depends upon Celery and Redis. The first
+one is used for task processing and the second one for the Pub/Sub primitives.
+Then, we reuse Redis as a broker too.
+
+In case you want to use another broker as *RabbitMQ*, you can implement the
+Pub/Sub or Fan-Out pattern by yourself by extending the ``PubSub`` type.
 
 .. code-block:: python
 
     from flask import Flask
-    from flask import render_template_string
-    from flask_notifications import Menu, register_menu
+    from flask_notifications import Notifications
 
     app = Flask(__name__)
-    Menu(app=app)
+    notifications = Notifications(app=app)
 
-    def tmpl_show_menu():
-        return render_template_string(
-            """
-            {%- for item in current_menu.children %}
-                {% if item.active %}*{% endif %}{{ item.text }}
-            {% endfor -%}
-            """)
 
-    @app.route('/')
-    @register_menu(app, '.', 'Home')
-    def index():
-        return tmpl_show_menu()
+or:
 
-    @app.route('/first')
-    @register_menu(app, '.first', 'First', order=0)
-    def first():
-        return tmpl_show_menu()
+.. code-block:: python
 
-    @app.route('/second')
-    @register_menu(app, '.second', 'Second', order=1)
-    def second():
-        return tmpl_show_menu()
+    from flask import Flask
+    from flask_notifications import Notifications
 
-    if __name__ == '__main__':
-        app.run(debug=True)
+    app = Flask(__name__)
+    notifications = Notifications()
+    notifications.init_app(app=app)
 
-If you save the above as ``app.py``, you can run the example
-application using your Python interpreter:
+or:
 
-.. code-block:: console
+.. code-block:: python
 
-    $ python app.py
-     * Running on http://127.0.0.1:5000/
+    from flask import Flask
+    from flask_notifications import Notifications
 
-and you can observe generated menu on the example pages:
+    # Corresponding information for brokers and Celery
+    config = {...}
+    celery = FlaskCeleryExt(app).celery
+    redis = StrictRedis(host=redis_host)
 
-.. code-block:: console
+    app = Flask(__name__)
+    notifications = Notifications()
+    notifications.init_app(app=app, celery=celery, broker=redis)
 
-    $ firefox http://127.0.0.1:5000/
-    $ firefox http://127.0.0.1:5000/first
-    $ firefox http://127.0.0.1:5000/second
+Now, we create a ``EventHub``. A hub is composed of a filter and a list of consumers.
+When an event is sent to the hub, the filter is applied to that event. If it
+passes, it is sent to all the registered consumers.
+
+An ``EventHub`` requires a label as a parameter. This label cannot be randomized.
+In order to make a reference to a hub, one should get first his identifier, which
+is not the same as the label.
+
+.. code-block:: python
+
+    test_hub = notifications.create_hub("TestHub")
+    test_hub_id = user_hub.hub_id
+
+
+The next step is to set up our hub. Let's say we want to aggregate in that hub
+all the events with the "test" type and which are sent from now on.
+
+.. code-block:: python
+
+    import datetime
+    now = datetime.now()
+
+    from flask_notifications.filters.with_event_type import WithEventType
+    from flask_notifications.filters.before_date import BeforeDate
+
+    event_hub.filter_by(
+        WithEventType("test") & Not(BeforeDate(now))
+    )
+
+
+This creates a composed filter with those requirements. Any ``EventFilter`` can
+be composed using the bitwise operators (``&``, ``|`` and ``^``) -it's not possible to use 
+the logical operators ``and``, ``or`` and ``xor`` because Python2.7 does not allow to
+override his behaviour-.
+
+Now, we register consumers to our hub. There are three possible ways:
+
+1. By using the ``@consumer`` decorator, very useful for a custom simple function.
+2. By using the ``register_consumer`` method if it's only one consumer.
+3. By using the ``register_consumers`` method it it's a list of consumers.
+
+.. code-block:: python
+
+    @event_hub.consumer(celery_task_name="app.write_to_file")
+    def write_to_file(event, *args, **kwargs):
+        with open("events.log", "a+w") as f:
+            f.write(str(event))
+
+
+    push_consumer = PushConsumer(redis, event_hub_id)
+    event_hub.register_consumer(push_consumer)
+
+When registering a function using the decorator, it is very important to specify
+the ``celery_task_name`` relatively to your application to help the workers to 
+detect the function. More information `here <http://celery.readthedocs.org/en/latest/userguide/tasks.html#names>`_.
+
+If you feel like to write a complex consumer, you can extend the the ``Consumer``
+interface. Also, this interface has some hooks. One before consuming the event
+and the other after. This is very handy when you want to confirm that an event
+has been stored and hence send it to a database to persist it.
+
+The only missing step is to send notifications.
+
+.. code-block:: python
+
+    event = Event(None, "test", "This event will pass the filter",
+                  "This is the body of the test", sender="system")
+    notifications.send(event.to_json())
+
+    event = Event(None, "system", "This event will not pass the filter",
+                  "This is the body of the test", sender="system")
+    notifications.send(event.to_json())
+
+
+``Event`` is a dictionary with a predefined model. If you would like to
+add your own fields and filter them, you just need to add the field to
+the ``Event`` and create a new filter by extending ``EventFilter``.
 
 You should now be able to emulate this example in your own Flask
-applications.  For more information, please read the :ref:`templating`
-guide, the :ref:`blueprints` guide, and peruse the :ref:`api`.
+applications.  For more information, please read the :ref:`architecture`
+guide, check the :ref:`predefined consumers` section, the :ref:`config`
+and peruse the :ref:`api`.
 
+.. _architecture:
 
-.. _templating:
-
-Templating
-==========
-
-By default, a proxy object to `current_menu` is added to your Jinja2
-context as `current_menu` to help you with creating navigation bar.
-For example:
-
-.. code-block:: jinja
-
-    <ul>
-      {%- for item in current_menu.children recursive -%}
-      <li>
-        <a href="{{ item.url}}">{{ item.text }}</a>
-        {%- if item.children -%}
-        <ul>
-          {{ loop(item.children) }}
-        </ul>
-        {%- endif -%}
-      </li>
-      {%- endfor -%}
-    </ul>
-
-.. _blueprints:
-
-Blueprint Support
-=================
-
-The most import part of an modular Flask application is Blueprint. You
-can create one for your application somewhere in your code and decorate
-your view function, like this:
-
-.. code-block:: python
-
-    from flask import Blueprint
-    from flask_notifications import register_menu
-
-    bp_account = Blueprint('account', __name__, url_prefix='/account')
-
-    @bp_account.route('/')
-    @register_menu(bp_account, '.account', 'Your account')
-    def index():
-        pass
-
-
-Sometimes you want to combine multiple blueprints and organize the
-navigation to certain hierarchy.
-
-.. code-block:: python
-
-    from flask import Blueprint
-    from flask_notifications import register_menu
-
-    bp_social = Blueprint('social', __name__, url_prefix='/social')
-
-    @bp_account.route('/list')
-    @register_menu(bp_social, '.account.list', 'Social networks')
-    def list():
-        pass
-
-As a result of this, your `current_menu` object will contain a list
-with 3 items while processing a request for `/social/list`.
-
-.. code-block:: python
-
-    >>> from example import app
-    >>> from flask_notifications import current_menu
-    >>> import account
-    >>> import social
-    >>> app.register_blueprint(account.bp_account)
-    >>> app.register_blueprint(social.bp_social)
-    >>> with app.test_client() as c:
-    ...     c.get('/social/list')
-    ...     assert current_menu.submenu('account.list').active
-    ...     current_menu.children
-
-
-Flask-Classy
+Architecture
 ============
+The application is composed of two main parts: the main program and the
+workers. These workers will process asynchronously all the consumers
+in the hubs.
 
-Flask-Classy is a library commonly used in Flask development and gives 
-additional structure to apps which already make use of blueprints as
-well as apps which do not use blueprints. 
+As we are defining functions using the ``@consumer`` decorator,
+the workers need to know and register this function as well. Therefore, a worker
+imports the main program and compiles it. It is very important not to have
+any randomized value because they won't match neither in the main application
+nor the program.
 
-Using Flask-Notifications with Flask-Classy is rather simple:
+*If you are going to use predefined consumers, you need to add the necessary
+configuration values to the Flask configuration.*
 
-.. code-block:: python
+.. _config:
 
-    from flask_classy import FlaskView
-    from flask_notifications import classy_menu_item
-
-    class MyEndpoint(FlaskView):
-        route_base = '/'
-
-        @classy_menu_item('frontend.account', 'Home', order=0)
-        def index(self):
-            # Do something.
-            pass
-
-
-Instead of using the `@menu.register_menu` decorator, we use classy_menu_item. 
-All usage is otherwise the same to `register_menu`, however you do not need 
-to provide reference to the blueprint/app.
-
-You do have to register the entire class with flask-menu at runtime however.
+Configuration
+=============
+``Flask-Notifications`` only needs one parameter in the Flask configuration: **PUBSUB**.
+This option points to the Python path of a subclass of ``PubSub``. By default,
+it uses ``RedisPubSub``, but you can add your own implementation of ``PubSub``
+using other brokers like RabbitMQ. You just need to make you sure that the option
+has the right path to the class in order to be imported by the Notifications module.
 
 .. code-block:: python
 
+    config = {
+        ...,
+        # Default option
+        "PUBSUB": "flask_notifications.pubsub.redis_pubsub.RedisPubSub",
+    }
 
-    from MyEndpoint import MyEndpoint
-    from flask import Blueprint
-    from flask_notifications import register_flaskview
+Also, ``Flask-Notifications`` uses the **JSON** serializer and deserializer to
+pass the events to the consumers. So, it is important that you allow the json
+serializer in the Celery configuration by using the following options (you can
+add any serializer that you want, the important thing is to enable the json
+serializer):
 
-    bp = Blueprint('bp', __name__)
+.. code-block:: python
 
-    MyEndpoint.register(bp)
-    register_flaskview(bp, MyEndpoint)
+    config = {
+        ...,
+        "CELERY_ACCEPT_CONTENT": ["application/json"],
+        "CELERY_TASK_SERIALIZER": "json",
+        "CELERY_RESULT_SERIALIZER": "json",
+    }
+
+
+.. _predefined consumers:
+
+Predefined Consumers
+====================
+The predefined consumers exist to fulfil simple needs like sending an email or
+writing a log. You can use them in your code by importing and registering them.
+
+For more complex consumers, you may create your own by extending a predefined
+consumer or creating a new one extending ``Consumer``.
+
+Current predefined consumers:
+
+.. module:: flask_notifications.consumers
+
+.. autoclass:: PushConsumer
+   :members:
+
+.. autoclass:: LogConsumer
+   :members:
+
+.. autoclass:: FlaskEmailConsumer
+   :members:
+
+.. autoclass:: FlaskMailConsumer
+   :members:
 
 .. _api:
 
@@ -251,6 +287,37 @@ Flask extension
 
 .. autoclass:: Notifications
    :members:
+
+.. autoclass:: EventHub
+   :members:
+
+.. module:: flask_notifications.event
+
+.. autoclass:: Event
+   :members:
+
+.. module:: flask_notifications.event_filter
+
+.. autoclass:: EventFilter
+   :members:
+
+.. module:: flask_notifications.consumers.consumer
+
+.. autoclass:: Consumer
+   :members:
+
+Decorators
+^^^^^^^^^^
+
+.. module:: flask_notifications.event_hub
+
+.. function:: consumer
+
+Proxies
+^^^^^^^^^^
+
+.. data:: current_notifications
+   Root of the notification extension.
 
 
 .. include:: ../CHANGES

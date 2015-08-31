@@ -17,14 +17,23 @@ web:
   links:
    - worker
    - redis
-  env_file: .dockerenv
+   - smtp
+  environment: 
+   - REDIS_URL=redis://redis:6379/0
+   - SMTP_SERVER=smtp
 
 worker:
   build: .
   command: celery worker -A celery_worker.celery --workdir=examples/simple/ -P gevent --loglevel=debug
-  env_file: .dockerenv
   links:
    - redis
+   - smtp
+  environment: 
+   - REDIS_URL=redis://redis:6379/0
+   - SMTP_SERVER=smtp
 
 redis:
   image: redis
+
+smtp:
+  image: jlynn/python-smtp

@@ -13,16 +13,12 @@ from flask_notifications.consumers.consumer import Consumer
 class EmailConsumer(Consumer):
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self, mail, sender=None, recipients=None):
+    def __init__(self, mail, sender=None, recipients=[]):
+        """Initializer of the email dependency, which inherits Consumer.
+        :param mail: Instance of the extension already initialized with app
+        :param sender: Who is sending the notification
+        :param recipients: Addresses that will receive a notification
         """
-            Initializer of the email dependency, which inherits Consumer.
-            Whatever class inherits EmailConsumer should implement these
-            methods plus
-
-            :param mail: Instance of the extension already initialized with app
-            :param sender: Who is sending the notification
-            :param recipients: Addresses that will receive a notification
-            """
         self.mail = mail
         self.sender = sender
         self.recipients = recipients
@@ -39,7 +35,7 @@ class EmailConsumer(Consumer):
         """
 
     @abc.abstractmethod
-    def create_message(self, event):
+    def create_message(self, event_json):
         """
         This method creates the message (email) that will be sent with the
         send_function. If you want to custom the notification that your user

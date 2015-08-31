@@ -7,18 +7,16 @@
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
+"""This extension is a Notification service that allows to send
+real-time notifications to the users.
 """
-This extension is a Notification service that allows to send
-notifications given some events as an input. The notifications arrive
-to the users using predefined or custom consumers.
-"""
+
+from importlib import import_module
 
 from flask import current_app, Response
 from flask_celeryext import FlaskCeleryExt
-from redis import StrictRedis
 from werkzeug.local import LocalProxy
 
-from flask_notifications.event import Event
 from flask_notifications.consumers.push.ssenotifier import SseNotifier
 from flask_notifications.event_hub import EventHub
 from .version import __version__
@@ -28,30 +26,25 @@ class Notifications(object):
 
     """Flask extension implementing a Notification service."""
 
-    def __init__(self, app=None, celery=None, redis=None,
-                 redis_url=None, *args, **kwargs):
-        """Initializer of the notification service.
+    def __init__(self, app=None, celery=None, broker=None, *args, **kwargs):
+        """Initialize the notification service.
 
         :param app: Application to extend
         :param celery: Optional celery instance to be used (it must
                         be already set up with the proper config)
-        :param redis: Optional redis instance to be used (it must be
+        :param broker: Optional broker instance to be used (it must be
                         already set up with the proper config)
-        :param redis_url: If no redis instance is passed, initialise
-                          a new one with the given redis_url
         """
         self.app = app
-        self.mail = None
-        self.celery = None
-        self.redis = None
+        self.celery = celery
+        self.broker = broker
         self._hubs = {}
         self._notifiers = {}
 
         if app is not None:
-            self.init_app(app, celery, redis, *args, **kwargs)
+            self.init_app(app, celery, broker, *args, **kwargs)
 
-    def init_app(self, app, celery=None, redis=None, redis_url=None,
-                 *args, **kwargs):
+    def init_app(self, app, celery=None, broker=None, *args, **kwargs):
         """Initialization of the Flask-notifications extension."""
         self.app = app
 
@@ -68,11 +61,17 @@ class Notifications(object):
         else:
             self.celery = celery
 
-        # Redis dependency (publisher-subscriber feature for SSE)
-        if redis is None:
-            self.redis = StrictRedis(redis_url if redis_url else "")
-        else:
-            self.redis = redis
+        # Broker dependency, mandatory
+        self.broker = broker
+
+        # Dynamic import from class name of pubsub
+        default_pubsub = "flask_notifications.pubsub.redis_pubsub.RedisPubSub"
+        pubsub_option = self.app.config["PUBSUB"] or default_pubsub
+        pubsub_option = pubsub_option.split(".")
+        module, classname = pubsub_option[0:-1], pubsub_option[-1]
+
+        imported_module = import_module(".".join(module))
+        self.pubsub = getattr(imported_module, classname)
 
         # Register extension in Flask app
         app.extensions['notifications'] = self
@@ -81,36 +80,42 @@ class Notifications(object):
             lambda: dict(current_notifications=current_notifications)
         )
 
-    def send(self, event_json):
-        """Send an event through all the hubs."""
-        event = Event.from_json(event_json)
-
+    def send(self, event):
+        """Send an event through to all the hubs."""
         def consume(hub):
             hub.consume(event)
         map(consume, self._hubs.itervalues())
 
-    def push_notifier_for(self, hub_id):
-        """Create a Flask Response that will push notifications
-        to the client once they are propagated through the system.
-
-        :return: A :class Response: that push new notifications
-                 to the browsers
-        """
+    def sse_notifier_for(self, hub_id):
+        """Create a :class SseNotifier: listening to a hub."""
         try:
             sse_notifier = self._notifiers[hub_id]
         except KeyError:
-            sse_notifier = Response(SseNotifier(self.redis, hub_id),
-                                    mimetype='text/event-stream')
+            sse_notifier = SseNotifier(self.create_pubsub(), hub_id)
             self._notifiers[hub_id] = sse_notifier
 
         return sse_notifier
 
+    def flask_sse_notifier(self, hub_id):
+        """Create a Flask :class Response: that will push notifications
+        to the client once they are propagated through the system.
+        """
+        return Response(self.sse_notifier_for(hub_id),
+                        mimetype='text/event-stream')
+
     def create_hub(self, hub_alias):
         """Create an EventHub to aggregate certain types of events that will
-        be consumed by the defined consumers in the hub."""
+        be consumed by the defined consumers in the hub.
+        """
         hub = EventHub(hub_alias, self.celery)
         self._hubs[hub.hub_id] = hub
         return hub
+
+    def create_pubsub(self):
+        """Return a PubSub instance from the class specified in
+        the PUBSUB option.
+        """
+        return self.pubsub(self.broker)
 
     @staticmethod
     def root():
@@ -118,7 +123,6 @@ class Notifications(object):
         return current_app.extensions['notifications']
 
 
-#: Global object that is proxy to the current application menu.
 current_notifications = LocalProxy(Notifications.root)
 
-__all__ = ('current_notifications', 'send', 'Notifications', '__version__')
+__all__ = ('current_notifications', 'Notifications', '__version__')

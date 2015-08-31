@@ -10,6 +10,7 @@ import abc
 
 
 class Consumer(object):
+
     """
     A consumer is any callable that performs an action in the
     system when receives an event.
@@ -17,30 +18,31 @@ class Consumer(object):
     A user can define his own hooks for each consumer. Two hooks
     are available: before and after consuming.
     """
+
     __metaclass__ = abc.ABCMeta
 
-    def __call__(self, event, *args, **kwargs):
+    def __call__(self, event_json, *args, **kwargs):
         """Main logic of the consumer."""
         # Executing hook before consuming
-        self.before_consume(event, *args, **kwargs)
+        self.before_consume(event_json, *args, **kwargs)
 
-        consumed = self.consume(event, *args, **kwargs)
+        consumed = self.consume(event_json, *args, **kwargs)
 
         # Executing hook after consuming
-        self.after_consume(event, *args, **kwargs)
+        self.after_consume(event_json, *args, **kwargs)
 
         return consumed
 
-    def before_consume(event, *args, **kwargs):
-        """Optional hook to be executed before :py:meth:`consume`."""
+    def before_consume(event_json, *args, **kwargs):
+        """Optional hook to be executed before :method consume:."""
         pass
 
-    def after_consume(event, *args, **kwargs):
-        """Optional hook to be executed after :py:meth:`consume`."""
+    def after_consume(event_json, *args, **kwargs):
+        """Optional hook to be executed after :method consume:."""
         pass
 
     @abc.abstractmethod
-    def consume(self, event, *args, **kwargs):
+    def consume(self, event_json, *args, **kwargs):
         """Real logic of the consumer."""
 
     @property

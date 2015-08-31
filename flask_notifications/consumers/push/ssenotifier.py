@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # This file is part of Flask-Notifications
 # Copyright (C) 2015 CERN.
@@ -10,9 +11,9 @@ from sse import Sse
 
 
 class SseNotifier(object):
-    def __init__(self, redis, channel):
+    def __init__(self, pubsub, channel):
         self.sse = Sse()
-        self.pubsub = redis.pubsub()
+        self.pubsub = pubsub
         self.pubsub.subscribe(channel)
 
     def __iter__(self):

@@ -14,12 +14,14 @@ from datetime import timedelta
 
 from celery import Celery
 from flask import Flask
-from redis import Redis
+from redis import StrictRedis
 
 from flask.ext.email import DummyMail
 from flask.ext.email import SMTPMail
 
-from flask_notifications import Notifications, Event, EventHub
+from flask_notifications import Notifications
+from flask_notifications.event import Event
+from flask_notifications.event_hub import EventHub
 from flask_notifications.consumers.email.flaskmail_consumer import \
     FlaskMailConsumer
 from flask_notifications.consumers.email.flaskemail_consumer import \
@@ -45,42 +47,33 @@ class NotificationsFlaskTestCase(unittest.TestCase):
         self.test_app = self.app.test_client()
 
         self.config = {
-            # Email configuration for Flask-Mail
-            "MAIL_SERVER": "smtp.gmail.com",
-            "MAIL_PORT": "587",
-            "MAIL_USERNAME": "invnotifications@gmail.com",
-            "MAIL_PASSWORD": os.environ["INVENIO_GMAIL_PASSWORD"],
-            "MAIL_USE_TLS": True,
-            "MAIL_USE_SSL": False,
-
-            # Email configuration for Flask-Email
-            "EMAIL_HOST": "smtp.gmail.com",
-            "EMAIL_PORT": "587",
-            "EMAIL_HOST_USER": "invnotifications@gmail.com",
-            "EMAIL_HOST_PASSWORD": os.environ["INVENIO_GMAIL_PASSWORD"],
-            "EMAIL_USE_TLS": True,
-            "EMAIL_USE_SSL": False,
-
             "DEBUG": True,
             "TESTING": True,
             "CELERY_BROKER_URL": "redis://localhost:6379/0",
             "CELERY_RESULT_BACKEND": "redis://localhost:6379/0",
             "BROKER_TRANSPORT": "redis",
-            "CELERY_ACCEPT_CONTENT": ["pickle", "json"],
+            "CELERY_ACCEPT_CONTENT": ["application/json"],
+            "CELERY_TASK_SERIALIZER": "json",
+            "CELERY_RESULT_SERIALIZER": "json",
             "CELERY_ALWAYS_EAGER": True,
-            "REDIS_URL": "redis://localhost:6379/0"
+            "REDIS_URL": "redis://localhost:6379/0",
+
+            # Notifications configuration
+            "PUBSUB": "flask_notifications.pubsub.redis_pubsub.RedisPubSub"
         }
 
         # Set up the instances
         self.app.config.update(self.config)
         self.celery = Celery()
         self.celery.conf.update(self.config)
-        self.redis = Redis()
+        self.redis = StrictRedis()
 
         # Get instance of the notifications module
         self.notifications = Notifications(
-            app=self.app, celery=self.celery, redis=self.redis
+            app=self.app, celery=self.celery, broker=self.redis
         )
+
+        self.pubsub = self.notifications.create_pubsub()
 
         # Mail settings
         self.default_email_account = "invnotifications@gmail.com"
@@ -98,25 +91,7 @@ class NotificationsFlaskTestCase(unittest.TestCase):
                            sender="system",
                            receivers=["jvican"],
                            expiration_datetime=self.tomorrow)
-
-        self.backup_event = Event("1234",
-                                  event_type="user",
-                                  title="This is a test",
-                                  body="This is the body of a test",
-                                  sender="system",
-                                  receivers=["jvican"])
-
-    def blocking_get_message(self, pubsub):
-        """Return a message from Redis in a blocking way."""
-        message = None
-        response = pubsub.parse_response(block=True)
-
-        if response:
-            message = pubsub.handle_message(
-                response, ignore_subscribe_messages=False
-            )
-
-        return message
+        self.event_json = self.event.to_json()
 
     def tearDown(self):
         """Destroy environment."""
@@ -156,13 +131,13 @@ class FlaskMailNotificationTest(NotificationsFlaskTestCase):
             # Testing only the synchronous execution, not async
             with self.flaskmail.mail.record_messages() as outbox:
                 # Send email
-                email_consumer(self.event)
+                email_consumer(self.event_json)
 
-                expected = "Event {0}".format(self.event["event_id"])
+                expected = "Event {0}".format(self.event.event_id)
 
                 assert len(outbox) == 1
                 assert outbox[0].subject == expected
-                assert outbox[0].body == str(self.event)
+                assert outbox[0].body == self.event_json
 
 
 class FlaskEmailNotificationTest(NotificationsFlaskTestCase):
@@ -179,10 +154,7 @@ class FlaskEmailNotificationTest(NotificationsFlaskTestCase):
     def test_email_delivery(self):
         with self.app.test_request_context():
             email_consumer = self.flaskemail
-
-            # Send email
-            sent = email_consumer(self.event)
-            return sent == 1
+            assert email_consumer(self.event_json) != 0
 
     def test_from_app(self):
         with self.app.test_request_context():
@@ -203,22 +175,23 @@ class PushNotificationTest(NotificationsFlaskTestCase):
         with self.app.test_request_context():
             user_hub = EventHub("TestPush", self.celery)
             user_hub_id = user_hub.hub_id
-            push_function = PushConsumer(self.redis, user_hub_id)
+            push_function = PushConsumer(self.pubsub, user_hub_id)
 
             # The notifier that push notifications to the client via SSE
-            push_notifier = self.notifications.push_notifier_for(user_hub_id)
-            pubsub = push_notifier.response.pubsub
+            sse_notifier = self.notifications.sse_notifier_for(user_hub_id)
 
-            push_function.consume(self.event)
+            push_function.consume(self.event_json)
 
             # Popping subscribe message. Somehow, if the option
-            # ignore_subscribe_messages is true, the other messages
+            # ignore_subscribe_messages is True, the other messages
             # are not detected.
-            propagated_message = self.blocking_get_message(pubsub)
+            propagated_messages = sse_notifier.pubsub.listen()
+            print(propagated_messages)
+            message = propagated_messages.next()
 
-            # Getting expected message and checking if it's the sent event
-            propagated_message = self.blocking_get_message(pubsub)
-            assert propagated_message['data'] == str(self.event)
+            # Getting expected message and checking it with the sent one
+            message = propagated_messages.next()
+            assert message['data'] == self.event_json
 
 
 class LogNotificationTest(NotificationsFlaskTestCase):
@@ -228,20 +201,16 @@ class LogNotificationTest(NotificationsFlaskTestCase):
         with self.app.test_request_context():
             filepath = "events.log"
 
-            # Clean previous log files
+            # Clean previous log files and log to file
             if os.access(filepath, os.R_OK):
                 os.remove(filepath)
-
-            # Log to a file
             log_function = LogConsumer(filepath)
-            log_function.consume(self.event)
+            log_function.consume(self.event_json)
 
-            # Check file
+            # Check and remove file
             with open(filepath, "r") as f:
                 written_line = f.readline()
-                assert written_line == str(self.event)
-
-            # Remove file
+                assert written_line == self.event_json
             os.remove(filepath)
 
 
@@ -260,11 +229,11 @@ class EventHubAndFiltersTest(NotificationsFlaskTestCase):
         can deregister consumers.
         """
         @self.event_hub.consumer()
-        def write_to_file(event, *args, **kwargs):
+        def write_to_file(event_json, *args, **kwargs):
             f = open("events.log", "a+w")
-            f.write(str(event))
+            f.write(event_json)
 
-        push_consumer = PushConsumer(self.redis, self.event_hub_id)
+        push_consumer = PushConsumer(self.pubsub, self.event_hub_id)
         self.event_hub.register_consumer(PushConsumer)
 
         # The previous consumers are indeed registered
@@ -272,7 +241,7 @@ class EventHubAndFiltersTest(NotificationsFlaskTestCase):
         assert self.event_hub.is_registered(write_to_file) is True
 
         # Registering the same PushConsumer as a sequence of consumers
-        repeated_push_consumer = PushConsumer(self.redis, self.event_hub_id)
+        repeated_push_consumer = PushConsumer(self.pubsub, self.event_hub_id)
         self.event_hub.register_consumers([PushConsumer])
 
         # The previous operation has no effect as the consumer has
