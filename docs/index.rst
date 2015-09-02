@@ -1,3 +1,12 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of Flask-Notifications
+# Copyright (C) 2015 CERN.
+#
+# Flask-Notifications is free software; you can redistribute it and/or modify
+# it under the terms of the Revised BSD License; see LICENSE file for
+# more details.
+
 ====================
  Flask-Notifications
 ====================
@@ -258,19 +267,15 @@ consumer or creating a new one extending ``Consumer``.
 
 Current predefined consumers:
 
-.. module:: flask_notifications.consumers
+.. module:: flask_notifications.consumers.push_consumer
 
-.. autoclass:: PushConsumer
-   :members:
+.. class:: push_consumer.PushConsumer
 
-.. autoclass:: LogConsumer
-   :members:
+.. class:: log_consumer.LogConsumer
 
-.. autoclass:: FlaskEmailConsumer
-   :members:
+.. class:: flaskemail_consumer.FlaskEmailConsumer
 
-.. autoclass:: FlaskMailConsumer
-   :members:
+.. class:: flaskmail_consumer.FlaskMailConsumer
 
 .. _api:
 

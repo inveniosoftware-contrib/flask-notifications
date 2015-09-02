@@ -7,18 +7,19 @@
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
+"""Base class for a Publish/Subscribe implementation in any broker."""
+
 import abc
 
 
-class PubSub(object):
-    """
-    Wrapper that allows to publish, subscribe and listen to events
-    by using any Broker.
-    """
+class Backend(object):
+
+    """Allows to publish, subscribe and listen to events."""
 
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, broker):
+        """Initialise broker."""
         self.broker = broker
 
     @abc.abstractmethod
@@ -28,9 +29,11 @@ class PubSub(object):
 
     @abc.abstractmethod
     def subscribe(self, channel):
-        """Subscribe to a channel only for this object. The
-        :method listen: will receive the published event to
-        the channel."""
+        """Subscribe to a channel only for this object.
+
+        The :method listen: will receive the published event to
+        the channel.
+        """
         pass
 
     @abc.abstractmethod

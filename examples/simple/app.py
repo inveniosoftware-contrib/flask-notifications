@@ -28,12 +28,8 @@ from gevent.pywsgi import WSGIServer
 from flask_celeryext import FlaskCeleryExt
 from flask_notifications import Notifications
 from flask_notifications.event import Event
+from flask_notifications.filters import *
 from flask_notifications.consumers.push.push_consumer import PushConsumer
-from flask_notifications.filters.before_date import BeforeDate
-from flask_notifications.filters.with_sender import WithSender
-from flask_notifications.filters.with_receivers import WithReceivers
-from flask_notifications.filters.with_event_type import WithEventType
-from flask_notifications.filters.not_filter import Not
 from flask_notifications.consumers.email.flaskemail_consumer \
     import FlaskEmailConsumer
 from flask_notifications.consumers.email.flaskmail_consumer \
@@ -76,7 +72,7 @@ config = {
     "REDIS_URL": redis_url,
 
     # Notifications configuration
-    "PUBSUB": "flask_notifications.pubsub.redis_pubsub.RedisPubSub"
+    "BACKEND": "flask_notifications.backend.redis_backend.RedisBackend"
 }
 
 app.config.update(config)
@@ -95,15 +91,15 @@ system_hub_id = system_hub.hub_id
 
 
 # Add a new consumer to the user_hub
-@user_hub.consumer(celery_task_name="app.write_to_file")
+@user_hub.register_consumer(celery_task_name="app.write_to_file")
 def write_to_file(event, *args, **kwargs):
     with open("events.log", "a+w") as f:
         f.write(str(event))
 
 
 # Register manually a push consumer
-pubsub = notifications.create_pubsub()
-push_consumer = PushConsumer(pubsub, user_hub_id)
+backend = notifications.create_backend()
+push_consumer = PushConsumer(backend, user_hub_id)
 user_hub.register_consumer(push_consumer)
 
 # Create two independent email consumers
@@ -116,16 +112,14 @@ email_consumer = FlaskEmailConsumer.from_app(
 )
 
 # Register one or more predefined consumers
-system_hub.register_consumers(
-    [mail_consumer, email_consumer]
-)
+map(system_hub.register_consumer, [mail_consumer, email_consumer])
 
 # Register filters for the hubs
 # By default, they accept any event
 now = datetime.now()
 
 user_hub.filter_by(
-    WithSender("jorge") | WithReceivers(["jiri", "tibor"])
+    WithSender("jorge") | WithRecipients(["jiri", "tibor"])
 )
 
 system_hub.filter_by(
@@ -144,7 +138,7 @@ def notify_user_event():
     event = Event(event_id=None, event_type="user",
                   title="This is a user test",
                   body="This is the body of the test", sender="jorge",
-                  receivers=["jiri", "tibor"])
+                  recipients=["jiri", "tibor"])
     notifications.send(event)
 
     return "Sent event"

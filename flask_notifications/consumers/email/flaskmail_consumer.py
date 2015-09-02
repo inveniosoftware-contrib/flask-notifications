@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # This file is part of Flask-Notifications
 # Copyright (C) 2015 CERN.
@@ -5,6 +6,8 @@
 # Flask-Notifications is free software; you can redistribute it and/or modify
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
+
+"""Email consumer using the Flask Mail extension."""
 
 from flask.ext.mail import Mail, Message
 
@@ -32,9 +35,9 @@ class FlaskMailConsumer(EmailConsumer):
     def create_message(self, event_json):
         """Create a message from an event."""
         event = Event.from_json(event_json)
-        return Message(subject="Event {0}".format(event.event_id),
-                       sender=self.sender,
-                       recipients=self.recipients,
+        return Message(subject="Event {0}".format(event["event_id"]),
+                       sender=event["sender"],
+                       recipients=event["recipients"],
                        body=event_json)
 
     def consume(self, event_json, *args, **kwargs):

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # This file is part of Flask-Notifications
 # Copyright (C) 2015 CERN.
@@ -6,15 +7,14 @@
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
-from abc import ABCMeta, abstractmethod
+"""Declaration of filters for the events."""
 
-"""This class defines a composable EventFilter."""
+from abc import ABCMeta, abstractmethod
 
 
 class EventFilter(object):
 
-    """An EventFilter is a filter that represents a certain condition
-    that all the events have to meet.
+    """Filter that represents a certain condition for the events.
 
     One can compose event filters with the following bitwise operators:
         :method &: AND bitwise operator

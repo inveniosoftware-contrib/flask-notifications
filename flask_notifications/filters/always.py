@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # This file is part of Flask-Notifications
 # Copyright (C) 2015 CERN.
@@ -6,10 +7,15 @@
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
+"""Always filter declaration."""
+
 from flask_notifications.event_filter import EventFilter
 
 
 class Always(EventFilter):
 
+    """Filter that accepts any event."""
+
     def filter(self, event, *args, **kwargs):
+        """It is always true."""
         return True

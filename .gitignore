@@ -11,3 +11,5 @@ docs/_build/
 .dockerenv
 .ropeproject/
 htmlcov/
+examples/simple/events.log
+events.log

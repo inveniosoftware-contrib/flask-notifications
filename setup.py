@@ -36,6 +36,9 @@ class PyTest(TestCommand):
     def run_tests(self):
         # import here, cause outside the eggs aren't loaded
         import pytest
+        import _pytest.config
+        pm = _pytest.config.get_plugin_manager()
+        pm.consider_setuptools_entrypoints()
         errno = pytest.main(self.pytest_args)
         sys.exit(errno)
 
@@ -62,8 +65,8 @@ setup(
     version=version,
     url='https://github.com/inveniosoftware/flask-notifications',
     license='BSD',
-    author='jvican',
-    author_email='jorgevc@fastmail.es',
+    author='CERN',
+    author_email='info@invenio-software.org',
     description='Flask-Notifications is a Flask extension that adds support '
                 'for real-time notifications.',
     long_description=open('README.rst').read(),

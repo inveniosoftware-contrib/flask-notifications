@@ -7,9 +7,7 @@
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
-"""This extension is a Notification service that allows to send
-real-time notifications to the users.
-"""
+"""Real-time Notification framework as a Flask extension."""
 
 from importlib import import_module
 
@@ -64,14 +62,15 @@ class Notifications(object):
         # Broker dependency, mandatory
         self.broker = broker
 
-        # Dynamic import from class name of pubsub
-        default_pubsub = "flask_notifications.pubsub.redis_pubsub.RedisPubSub"
-        pubsub_option = self.app.config["PUBSUB"] or default_pubsub
-        pubsub_option = pubsub_option.split(".")
-        module, classname = pubsub_option[0:-1], pubsub_option[-1]
+        # Dynamic import from class name of backend
+        default_backend = \
+            "flask_notifications.backend.redis_backend.RedisBackend"
+        backend_option = self.app.config["BACKEND"] or default_backend
+        backend_option = backend_option.split(".")
+        module, classname = backend_option[0:-1], backend_option[-1]
 
         imported_module = import_module(".".join(module))
-        self.pubsub = getattr(imported_module, classname)
+        self.backend = getattr(imported_module, classname)
 
         # Register extension in Flask app
         app.extensions['notifications'] = self
@@ -91,31 +90,25 @@ class Notifications(object):
         try:
             sse_notifier = self._notifiers[hub_id]
         except KeyError:
-            sse_notifier = SseNotifier(self.create_pubsub(), hub_id)
+            sse_notifier = SseNotifier(self.create_backend(), hub_id)
             self._notifiers[hub_id] = sse_notifier
 
         return sse_notifier
 
     def flask_sse_notifier(self, hub_id):
-        """Create a Flask :class Response: that will push notifications
-        to the client once they are propagated through the system.
-        """
+        """Create a Flask :class Response: that will push notifications."""
         return Response(self.sse_notifier_for(hub_id),
                         mimetype='text/event-stream')
 
     def create_hub(self, hub_alias):
-        """Create an EventHub to aggregate certain types of events that will
-        be consumed by the defined consumers in the hub.
-        """
+        """Create an EventHub to aggregate certain types of events."""
         hub = EventHub(hub_alias, self.celery)
         self._hubs[hub.hub_id] = hub
         return hub
 
-    def create_pubsub(self):
-        """Return a PubSub instance from the class specified in
-        the PUBSUB option.
-        """
-        return self.pubsub(self.broker)
+    def create_backend(self):
+        """Create a PublishSubscribe instance from the specified broker."""
+        return self.backend(self.broker)
 
     @staticmethod
     def root():

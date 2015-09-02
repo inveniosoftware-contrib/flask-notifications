@@ -6,6 +6,8 @@
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
+"""Consumer that writes the events to a file."""
+
 from flask_notifications.consumers.consumer import Consumer
 
 
@@ -19,7 +21,11 @@ class LogConsumer(Consumer):
         # Permission to read, write and create
         self.default_permissions = "a+w"
 
+    def write_event(self, event_json):
+        """Choose the format of the event to be written."""
+        return event_json
+
     def consume(self, event_json, *args, **kwargs):
         """Write event to file."""
         with open(self.filepath, self.default_permissions) as f:
-            f.write(str(event_json))
+            f.write(self.write_event(event_json))

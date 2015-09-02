@@ -7,17 +7,24 @@
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
+"""Notifier that uses Server-Sent Events."""
+
 from sse import Sse
 
 
 class SseNotifier(object):
-    def __init__(self, pubsub, channel):
+
+    """Iterator that yields the published messages in a channel."""
+
+    def __init__(self, backend, channel):
+        """Initialise PublishSubscribe instance and channel."""
         self.sse = Sse()
-        self.pubsub = pubsub
-        self.pubsub.subscribe(channel)
+        self.backend = backend
+        self.backend.subscribe(channel)
 
     def __iter__(self):
-        for message in self.pubsub.listen():
+        """Yield the published messages in a SSE format."""
+        for message in self.backend.listen():
             if message['type'] == 'message':
                 self.sse.add_message("", message['data'])
                 for data in self.sse:

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # This file is part of Flask-Notifications
 # Copyright (C) 2015 CERN.
@@ -6,83 +7,67 @@
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
+"""EventHub declaration."""
+
 from blinker import signal
+from functools import wraps
 
 from flask_notifications.filters.always import Always
 
 
 class EventHub:
 
-    "An EventHub is composed of a filter and consumers."
+    """An EventHub is composed of a filter and consumers."""
 
     def __init__(self, hub_alias, celery):
-        """Init the Hub with a the name of the hub and an instance
-        of Celery to perform async execution in the consumers.
-        """
-        self.hub_id = "event-hub-{}".format(hub_alias)
+        """Init the Hub with a hub alias and a Celery instance."""
+        self.hub_id = "event-hub-{0}".format(hub_alias)
         self.signal = signal(self.hub_id)
 
         self._hub_event_filter = Always()
         self.celery = celery
 
-        # We need to keep track of them to disconnect them from a signal
-        # Async consumer != consumer
+        # To confirm registration, async consumer != consumer
         self.registered_consumers = {}
 
-    def consumer(self, celery_task_name=None):
-        """Decorator that modifies the given function, register it
-        making it asynchronous and connect the function to the signal.
+    def register_consumer(self, f, *args, **kwargs):
+        """Register a function making it asynchronous.
+
+        The consumer is converted to async using the task decorator
+        with the weak option enabled because the function is created in scope.
         """
-        def _make_async(f):
-            async_creator = self.celery.task(name=celery_task_name)
-            return async_creator(f)
-
+        @wraps(f)
         def register_async_consumer(f):
-            # Weak is False because the receiver attached is created
-            # in scope and there is no external reference to it
-            async_f = _make_async(f)
-            self.signal.connect(async_f.delay, weak=False)
-            self.registered_consumers[f.__name__] = async_f
+            async_creator = self.celery.task(**kwargs)
+            async_f = async_creator(f)
+            if not self.is_registered(f):
+                self.signal.connect(async_f.delay, weak=False)
+                self.registered_consumers[f] = async_f
+            return f
 
-            return async_f
+        if f and callable(f):
+            return register_async_consumer(f)
+        else:
+            return register_async_consumer
 
-        return register_async_consumer
-
-    def is_registered(self, consumer_to_check):
+    def is_registered(self, consumer_or_name):
         """Check if a consumer is registered."""
-        return consumer_to_check.__name__ in self.registered_consumers
-
-    def register_consumer(self, consumer):
-        """Register one consumer wrapping it in an asynchronous execution."""
-        if not self.is_registered(consumer):
-            register_as_async = self.consumer()
-            register_as_async(consumer)
-
-    def register_consumers(self, consumers_iterable):
-        """Register sequence of consumers."""
-        for consumer in consumers_iterable:
-            self.register_consumer(consumer)
+        return consumer_or_name in self.registered_consumers
 
     def deregister_consumer(self, consumer):
-        """Deregister a consumer in order to not execute it anymore."""
-        async_consumer = self.registered_consumers[consumer.__name__]
+        """Deregister one or more consumers."""
+        async_consumer = self.registered_consumers[consumer]
         self.signal.disconnect(async_consumer)
-        del self.registered_consumers[consumer.__name__]
-
-    def deregister_consumers(self, consumers):
-        """Remove consumers from the register."""
-        for consumer in consumers:
-            self.deregister_consumer(consumer)
+        try:
+            del self.registered_consumers[consumer]
+        except KeyError:
+            pass
 
     def filter_by(self, event_filter):
-        """Filter the events by the following filter. The filter
-        can be composed from other filters or only one.
-        """
+        """Filter the events to know if the event should be processed."""
         self._hub_event_filter = event_filter
 
     def consume(self, event, *args, **kwargs):
-        """Consuming the event by applying the consumers registered
-        for that event type.
-        """
+        """Consume the event by all the consumers."""
         if self._hub_event_filter(event):
             self.signal.send(event.to_json())

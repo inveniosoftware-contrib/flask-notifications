@@ -1,0 +1,1 @@
+"""Log support for consumers."""

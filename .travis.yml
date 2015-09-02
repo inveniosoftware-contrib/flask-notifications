@@ -14,6 +14,8 @@ language: python
 python:
   - "2.6"
   - "2.7"
+  - "3.3"
+  - "3.4"
 
 install:
   - pip install --upgrade pip
@@ -27,7 +29,6 @@ services:
 script:
   - pep257 flask_notifications
   - "sphinx-build -qnNW docs docs/_build/html"
-  - python -m smtpd -n -c "DebuggingServer" "0.0.0.0:25" &
   - python setup.py test
 
 after_success:

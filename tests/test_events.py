@@ -16,23 +16,19 @@ from celery import Celery
 from flask import Flask
 from redis import StrictRedis
 
-from flask.ext.email import DummyMail
-from flask.ext.email import SMTPMail
-
 from flask_notifications import Notifications
 from flask_notifications.event import Event
 from flask_notifications.event_hub import EventHub
 from flask_notifications.consumers.email.flaskmail_consumer import \
     FlaskMailConsumer
-from flask_notifications.consumers.email.flaskemail_consumer import \
-    FlaskEmailConsumer
 from flask_notifications.consumers.push.push_consumer import PushConsumer
 from flask_notifications.consumers.log.log_consumer import LogConsumer
 from flask_notifications.filters.before_date import BeforeDate
+from flask_notifications.filters.after_date import AfterDate
 from flask_notifications.filters.expired import Expired
 from flask_notifications.filters.with_id import WithId
 from flask_notifications.filters.with_sender import WithSender
-from flask_notifications.filters.with_receivers import WithReceivers
+from flask_notifications.filters.with_recipients import WithRecipients
 from flask_notifications.filters.with_event_type import WithEventType
 from flask_notifications.filters.not_filter import Not
 
@@ -59,7 +55,7 @@ class NotificationsFlaskTestCase(unittest.TestCase):
             "REDIS_URL": "redis://localhost:6379/0",
 
             # Notifications configuration
-            "PUBSUB": "flask_notifications.pubsub.redis_pubsub.RedisPubSub"
+            "BACKEND": "flask_notifications.backend.redis_backend.RedisBackend"
         }
 
         # Set up the instances
@@ -73,15 +69,18 @@ class NotificationsFlaskTestCase(unittest.TestCase):
             app=self.app, celery=self.celery, broker=self.redis
         )
 
-        self.pubsub = self.notifications.create_pubsub()
+        self.backend = self.notifications.create_backend()
 
         # Mail settings
         self.default_email_account = "invnotifications@gmail.com"
 
         # Time variables
         self.tomorrow = datetime.now() + timedelta(days=1)
-        next_to_tomorrow = datetime.now() + timedelta(days=2)
-        self.next_to_tomorrow_tm = float(next_to_tomorrow.strftime("%s"))
+        self.next_to_tomorrow = datetime.now() + timedelta(days=2)
+        self.next_to_next_to_tomorrow = datetime.now() + timedelta(days=3)
+        self.next_to_tomorrow_tm = float(self.next_to_tomorrow.strftime("%s"))
+        self.next_to_next_to_tomorrow_tm = \
+            float(self.next_to_next_to_tomorrow.strftime("%s"))
 
         # Create basic event to use in the tests, id randomized
         self.event = Event("1234",
@@ -89,7 +88,7 @@ class NotificationsFlaskTestCase(unittest.TestCase):
                            title="This is a test",
                            body="This is the body of a test",
                            sender="system",
-                           receivers=["jvican"],
+                           recipients=["jvican"],
                            expiration_datetime=self.tomorrow)
         self.event_json = self.event.to_json()
 
@@ -109,9 +108,9 @@ class EventsTest(NotificationsFlaskTestCase):
             json = self.event.to_json()
             event_from_parser = Event.from_json(json)
 
-            assert event_from_parser.event_id == self.event.event_id
-            assert event_from_parser.title == self.event.title
-            assert event_from_parser.body == self.event.body
+            assert event_from_parser["event_id"] == self.event["event_id"]
+            assert event_from_parser["title"] == self.event["title"]
+            assert event_from_parser["body"] == self.event["body"]
 
 
 class FlaskMailNotificationTest(NotificationsFlaskTestCase):
@@ -133,38 +132,11 @@ class FlaskMailNotificationTest(NotificationsFlaskTestCase):
                 # Send email
                 email_consumer(self.event_json)
 
-                expected = "Event {0}".format(self.event.event_id)
+                expected = "Event {0}".format(self.event["event_id"])
 
                 assert len(outbox) == 1
                 assert outbox[0].subject == expected
                 assert outbox[0].body == self.event_json
-
-
-class FlaskEmailNotificationTest(NotificationsFlaskTestCase):
-
-    def setUp(self):
-        super(FlaskEmailNotificationTest, self).setUp()
-
-        # Use flask-email dependency (with DummyMail for testing)
-        self.flaskemail = FlaskEmailConsumer(
-            DummyMail(self.app), self.default_email_account,
-            [self.default_email_account]
-        )
-
-    def test_email_delivery(self):
-        with self.app.test_request_context():
-            email_consumer = self.flaskemail
-            assert email_consumer(self.event_json) != 0
-
-    def test_from_app(self):
-        with self.app.test_request_context():
-            flaskemail_instance = FlaskEmailConsumer.from_app(
-                self.app, self.default_email_account,
-                [self.default_email_account]
-            )
-
-            # Test from_app method create a SMTP mailbox by default
-            assert isinstance(flaskemail_instance.mail, SMTPMail)
 
 
 class PushNotificationTest(NotificationsFlaskTestCase):
@@ -175,7 +147,7 @@ class PushNotificationTest(NotificationsFlaskTestCase):
         with self.app.test_request_context():
             user_hub = EventHub("TestPush", self.celery)
             user_hub_id = user_hub.hub_id
-            push_function = PushConsumer(self.pubsub, user_hub_id)
+            push_function = PushConsumer(self.backend, user_hub_id)
 
             # The notifier that push notifications to the client via SSE
             sse_notifier = self.notifications.sse_notifier_for(user_hub_id)
@@ -185,7 +157,7 @@ class PushNotificationTest(NotificationsFlaskTestCase):
             # Popping subscribe message. Somehow, if the option
             # ignore_subscribe_messages is True, the other messages
             # are not detected.
-            propagated_messages = sse_notifier.pubsub.listen()
+            propagated_messages = sse_notifier.backend.listen()
             print(propagated_messages)
             message = propagated_messages.next()
 
@@ -228,39 +200,35 @@ class EventHubAndFiltersTest(NotificationsFlaskTestCase):
         calling directly :method register_consumer:. The client also
         can deregister consumers.
         """
-        @self.event_hub.consumer()
+        @self.event_hub.register_consumer
         def write_to_file(event_json, *args, **kwargs):
             f = open("events.log", "a+w")
             f.write(event_json)
 
-        push_consumer = PushConsumer(self.pubsub, self.event_hub_id)
-        self.event_hub.register_consumer(PushConsumer)
+        push_consumer = PushConsumer(self.backend, self.event_hub_id)
+        self.event_hub.register_consumer(push_consumer)
 
         # The previous consumers are indeed registered
         assert self.event_hub.is_registered(push_consumer) is True
         assert self.event_hub.is_registered(write_to_file) is True
 
         # Registering the same PushConsumer as a sequence of consumers
-        repeated_push_consumer = PushConsumer(self.pubsub, self.event_hub_id)
-        self.event_hub.register_consumers([PushConsumer])
+        repeated_push_consumer = PushConsumer(self.backend, self.event_hub_id)
+        self.event_hub.register_consumer(repeated_push_consumer)
 
         # The previous operation has no effect as the consumer has
         # been previously registered
         registered = list(self.event_hub.registered_consumers)
-
-        def check_registered_consumer(c):
-            return c == repeated_push_consumer.__name__
-
-        assert len(filter(check_registered_consumer, registered)) == 1
+        assert len(filter(self.event_hub.is_registered, registered)) == 2
 
         # Deregister previous consumers
-        self.event_hub.deregister_consumers([write_to_file, push_consumer])
+        map(self.event_hub.deregister_consumer, [write_to_file, push_consumer])
         assert len(self.event_hub.registered_consumers) == 0
 
     def test_and_filters(self):
         f1 = WithEventType("user")
         f2 = WithSender("system")
-        f3 = WithReceivers(["jvican"])
+        f3 = WithRecipients(["jvican"])
 
         f1f2 = f1 & f2
         f1f2f3 = f1 & f2 & f3
@@ -268,18 +236,18 @@ class EventHubAndFiltersTest(NotificationsFlaskTestCase):
         assert f1f2f3(self.event) is True
 
         assert f1(self.event) is True
-        self.event.event_type = "info"
+        self.event["event_type"] = "info"
         assert f1(self.event) is False
         assert f1f2(self.event) is False
         assert f1f2f3(self.event) is False
 
         assert f2(self.event) is True
-        self.event.sender = "antisystem"
+        self.event["sender"] = "antisystem"
         assert f2(self.event) is False
         assert f1f2f3(self.event) is False
 
         assert f3(self.event) is True
-        self.event.receivers = ["johndoe"]
+        self.event["recipients"] = ["johndoe"]
         assert f3(self.event) is False
         assert f1f2f3(self.event) is False
 
@@ -292,19 +260,33 @@ class EventHubAndFiltersTest(NotificationsFlaskTestCase):
         assert f1f2f3(self.event) is True
 
         assert f1(self.event) is True
-        self.event.timestamp = self.next_to_tomorrow_tm
+        self.event["timestamp"] = self.next_to_tomorrow_tm
         assert f1(self.event) is False
         assert f1f2f3(self.event) is True
 
         assert f2(self.event) is True
-        self.event.event_id = "123"
+        self.event["event_id"] = "123"
         assert f2(self.event) is False
         assert f1f2f3(self.event) is True
 
         assert f3(self.event) is True
-        self.event.expiration_datetime = datetime.now()
+        self.event["expiration_datetime"] = datetime.now()
         assert f3(self.event) is False
         assert f1f2f3(self.event) is False
+
+    def test_xor_filters(self):
+        # f1 is false in the beginning
+        f1 = AfterDate(self.next_to_tomorrow)
+        f2 = WithId("1234")
+        f1f2 = f1 ^ f2
+
+        assert f1f2(self.event) is True
+        self.event["timestamp"] = self.next_to_next_to_tomorrow_tm
+        assert f1f2(self.event) is False
+        self.event["event_id"] = "123"
+        assert f1f2(self.event) is True
+        self.event["timestamp"] = self.next_to_tomorrow_tm
+        assert f1f2(self.event) is False
 
 
 if __name__ == '__main__':

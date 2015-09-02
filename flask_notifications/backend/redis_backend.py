@@ -7,22 +7,32 @@
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
-from flask_notifications.pubsub.pubsub import PubSub
+"""RedisBackend declaration."""
+
+from flask_notifications.backend.backend import Backend
 
 
-class RedisPubSub(PubSub):
+class RedisBackend(Backend):
+
+    """Backend implementation using Redis."""
+
     def __init__(self, redis):
-        super(RedisPubSub, self).__init__(redis)
+        """Initialise and call base class."""
+        super(RedisBackend, self).__init__(redis)
         self.pubsub = self.broker.pubsub()
 
     def publish(self, channel, event_json):
-        """In Redis, this method will publish an event to a channel
-        and that event will be received by any :class RedisPubSub:
-        object which is subscribed to that channel."""
+        """Publish an event to a channel.
+
+        That event will be received by any :class RedisBackend:
+        object which is subscribed to that channel.
+        """
         return self.broker.publish(channel, event_json)
 
     def subscribe(self, channel):
+        """Subscribe to a channel."""
         return self.pubsub.subscribe(channel)
 
     def listen(self):
+        """Listen to a channel."""
         return self.pubsub.listen()

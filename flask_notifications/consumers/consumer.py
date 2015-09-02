@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # This file is part of Flask-Notifications
 # Copyright (C) 2015 CERN.
@@ -6,14 +7,14 @@
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
+"""Consumer declaration."""
+
 import abc
 
 
 class Consumer(object):
 
-    """
-    A consumer is any callable that performs an action in the
-    system when receives an event.
+    """A callable that performs an action when receives an event.
 
     A user can define his own hooks for each consumer. Two hooks
     are available: before and after consuming.
@@ -47,12 +48,17 @@ class Consumer(object):
 
     @property
     def __name__(self):
+        """Get name of class."""
         return self.__class__.__name__
 
     def __hash__(self):
-        # To avoid duplicate receivers in a hub, we redefine the
-        # hash to be unique for the same Consumer.
+        """Hash only using the name and not the id.
+
+        To avoid duplicate recipients in a hub, we redefine the
+        hash to be unique for the same Consumer.
+        """
         return hash(self.__name__)
 
     def __eq__(self, other):
+        """Equality comparison only using hash."""
         return hash(self) == hash(other)

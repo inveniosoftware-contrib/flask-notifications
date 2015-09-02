@@ -9,31 +9,21 @@
 -->
 <!DOCTYPE html>
 <html>
-
-    <head>
-        <script type="text/javascript" src="//code.jquery.com/jquery-1.8.0.min.js"></script>
-        <script type="text/javascript">
-            $(document).ready(
-                    function() {
-                        sse = new EventSource('/user_notifications');
-                        sse.onmessage = function(message) {
-                            console.log('A notification has arrived!');
-                            $('#output').append('<li>'+message.data+'</li>');
-                        }
-
-                    })
-
-        </script>
-    </head>
-
-    <body>
-
-        <h2>Demo</h2>
-
-        <ul id="output">
-
-        </ul>
-
-    </body>
-
+  <head>
+    <script type="text/javascript" src="//code.jquery.com/jquery-1.8.0.min.js"></script>
+    <script type="text/javascript">
+      $(document).ready(
+        function() {
+          sse = new EventSource('/user_notifications');
+          sse.onmessage = function(message) {
+            console.log('A notification has arrived!');
+            $('#output').append('<li>'+message.data+'</li>');
+          }
+        })
+    </script>
+  </head>
+  <body>
+    <h2>Demo</h2>
+      <ul id="output"></ul>
+  </body>
 </html>

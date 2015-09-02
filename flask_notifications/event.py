@@ -7,31 +7,32 @@
 # it under the terms of the Revised BSD License; see LICENSE file for
 # more details.
 
+"""Event declaration for the Flask-Notifications module."""
+
 import uuid
 import time
 
-from UserDict import UserDict
+try:
+    from UserDict import UserDict
+except ImportError:
+    from collections import UserDict
+
 from flask.json import loads, dumps
 
 
 class Event(UserDict):
 
-    """An Event is a signal used to specify a certain behaviour
-    and is used to model types of notifications.
+    """Event is a signal which models a type of notification.
 
     It's fully customizable and allow to represent the business model
-    by extending the event.
+    by extending it.
     """
 
     def __init__(self, event_id, event_type, title, body,
-                 timestamp=None, sender=None, receivers=[],
+                 timestamp=None, sender=None, recipients=[],
                  tags=[], expiration_datetime=None, **kwargs):
-
         """Initialize event and default non-existing values."""
-
-        # Randomizing ids if not present
         if not event_id:
-            # Make a string out of a randomized uuid
             event_id = str(uuid.uuid4())
 
         if not timestamp:
@@ -43,54 +44,21 @@ class Event(UserDict):
              "body": body,
              "timestamp": timestamp,
              "sender": sender,
-             "receivers": receivers,
+             "recipients": recipients,
              "tags": tags,
              "expiration_datetime": expiration_datetime}
 
         UserDict.__init__(self, dict=d, **kwargs)
 
-    @property
-    def event_id(self):
-        return self["event_id"]
-
-    @property
-    def event_type(self):
-        return self["event_type"]
-
-    @property
-    def title(self):
-        return self["title"]
-
-    @property
-    def body(self):
-        return self["body"]
-
-    @property
-    def timestamp(self):
-        return self["timestamp"]
-
-    @property
-    def sender(self):
-        return self["sender"]
-
-    @property
-    def receivers(self):
-        return self["receivers"]
-
-    @property
-    def tags(self):
-        return self["tags"]
-
-    @property
-    def expiration_datetime(self):
-        return self["expiration_datetime"]
-
     def __str__(self):
+        """By default, JSON."""
         return self.to_json()
 
     @classmethod
     def from_json(cls, event_json):
+        """Json to event."""
         return cls(**loads(event_json))
 
     def to_json(self):
+        """Event to json."""
         return dumps(self.data)
