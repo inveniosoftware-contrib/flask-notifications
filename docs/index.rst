@@ -83,7 +83,7 @@ one is used for task processing and the second one for the Pub/Sub primitives.
 Then, we reuse Redis as a broker too.
 
 In case you want to use another broker as *RabbitMQ*, you can implement the
-Pub/Sub or Fan-Out pattern by yourself by extending the ``PubSub`` type.
+Pub/Sub or Fan-Out pattern by yourself by extending the ``Backend`` type.
 
 .. code-block:: python
 
@@ -156,15 +156,11 @@ be composed using the bitwise operators (``&``, ``|`` and ``^``) -it's not possi
 the logical operators ``and``, ``or`` and ``xor`` because Python2.7 does not allow to
 override his behaviour-.
 
-Now, we register consumers to our hub. There are three possible ways:
-
-1. By using the ``@consumer`` decorator, very useful for a custom simple function.
-2. By using the ``register_consumer`` method if it's only one consumer.
-3. By using the ``register_consumers`` method it it's a list of consumers.
+Now, we register some consumers to our hub.
 
 .. code-block:: python
 
-    @event_hub.consumer(celery_task_name="app.write_to_file")
+    @event_hub.register_consumer(celery_task_name="app.write_to_file")
     def write_to_file(event, *args, **kwargs):
         with open("events.log", "a+w") as f:
             f.write(str(event))
@@ -212,7 +208,7 @@ The application is composed of two main parts: the main program and the
 workers. These workers will process asynchronously all the consumers
 in the hubs.
 
-As we are defining functions using the ``@consumer`` decorator,
+As we are defining functions using the ``@register_consumer`` decorator,
 the workers need to know and register this function as well. Therefore, a worker
 imports the main program and compiles it. It is very important not to have
 any randomized value because they won't match neither in the main application
@@ -225,9 +221,9 @@ configuration values to the Flask configuration.*
 
 Configuration
 =============
-``Flask-Notifications`` only needs one parameter in the Flask configuration: **PUBSUB**.
-This option points to the Python path of a subclass of ``PubSub``. By default,
-it uses ``RedisPubSub``, but you can add your own implementation of ``PubSub``
+``Flask-Notifications`` only needs one parameter in the Flask configuration: **BACKEND**.
+This option points to the Python path of a subclass of ``Backend``. By default,
+it uses ``RedisBackend``, but you can add your own implementation of ``Backend``
 using other brokers like RabbitMQ. You just need to make you sure that the option
 has the right path to the class in order to be imported by the Notifications module.
 
@@ -236,7 +232,7 @@ has the right path to the class in order to be imported by the Notifications mod
     config = {
         ...,
         # Default option
-        "PUBSUB": "flask_notifications.pubsub.redis_pubsub.RedisPubSub",
+        "BACKEND": "flask_notifications.pubsub.redis_pubsub.RedisPubSub",
     }
 
 Also, ``Flask-Notifications`` uses the **JSON** serializer and deserializer to
@@ -316,7 +312,7 @@ Decorators
 
 .. module:: flask_notifications.event_hub
 
-.. function:: consumer
+.. function:: register_consumer
 
 Proxies
 ^^^^^^^^^^
