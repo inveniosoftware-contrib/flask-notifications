@@ -9,8 +9,9 @@
 
 """EventHub declaration."""
 
+from six import callable
 from blinker import signal
-from functools import wraps
+from six import wraps
 
 from flask_notifications.filters.always import Always
 

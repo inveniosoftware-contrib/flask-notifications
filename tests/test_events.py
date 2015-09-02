@@ -11,6 +11,8 @@ import os
 import unittest
 from datetime import datetime
 from datetime import timedelta
+from six import next
+from six.moves import filter
 
 from celery import Celery
 from flask import Flask
@@ -158,12 +160,11 @@ class PushNotificationTest(NotificationsFlaskTestCase):
             # ignore_subscribe_messages is True, the other messages
             # are not detected.
             propagated_messages = sse_notifier.backend.listen()
-            print(propagated_messages)
-            message = propagated_messages.next()
+            message = next(propagated_messages)
 
             # Getting expected message and checking it with the sent one
-            message = propagated_messages.next()
-            assert message['data'] == self.event_json
+            message = next(propagated_messages)
+            assert message['data'].decode("utf-8") == self.event_json
 
 
 class LogNotificationTest(NotificationsFlaskTestCase):
@@ -219,10 +220,12 @@ class EventHubAndFiltersTest(NotificationsFlaskTestCase):
         # The previous operation has no effect as the consumer has
         # been previously registered
         registered = list(self.event_hub.registered_consumers)
-        assert len(filter(self.event_hub.is_registered, registered)) == 2
+        assert len(list(filter(self.event_hub.is_registered, registered))) == 2
 
         # Deregister previous consumers
-        map(self.event_hub.deregister_consumer, [write_to_file, push_consumer])
+        for consumer in [write_to_file, push_consumer]:
+            self.event_hub.deregister_consumer(consumer)
+
         assert len(self.event_hub.registered_consumers) == 0
 
     def test_and_filters(self):

@@ -12,11 +12,7 @@
 import uuid
 import time
 
-try:
-    from UserDict import UserDict
-except ImportError:
-    from collections import UserDict
-
+from six.moves import UserDict
 from flask.json import loads, dumps
 
 

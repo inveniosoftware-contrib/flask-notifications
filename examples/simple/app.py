@@ -112,7 +112,8 @@ email_consumer = FlaskEmailConsumer.from_app(
 )
 
 # Register one or more predefined consumers
-map(system_hub.register_consumer, [mail_consumer, email_consumer])
+for consumer in [mail_consumer, email_consumer]:
+    system_hub.register_consumer(consumer)
 
 # Register filters for the hubs
 # By default, they accept any event

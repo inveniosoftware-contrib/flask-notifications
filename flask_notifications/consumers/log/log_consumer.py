@@ -19,7 +19,7 @@ class LogConsumer(Consumer):
         """Initialise permissions and filepath."""
         self.filepath = filepath
         # Permission to read, write and create
-        self.default_permissions = "a+w"
+        self.default_permissions = "a"
 
     def write_event(self, event_json):
         """Choose the format of the event to be written."""
