@@ -120,7 +120,7 @@ for consumer in [mail_consumer, email_consumer]:
 now = datetime.now()
 
 user_hub.filter_by(
-    WithSender("jorge") | WithRecipients(["jiri", "tibor"])
+    WithSender("john") | WithRecipients(["tom", "tim"])
 )
 
 system_hub.filter_by(
@@ -138,8 +138,8 @@ def notify_user_event():
     """Sends a notification of type user"""
     event = Event(event_id=None, event_type="user",
                   title="This is a user test",
-                  body="This is the body of the test", sender="jorge",
-                  recipients=["jiri", "tibor"])
+                  body="This is the body of the test", sender="john",
+                  recipients=["tom", "tim"])
     notifications.send(event)
 
     return "Sent event"

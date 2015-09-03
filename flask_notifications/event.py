@@ -11,7 +11,9 @@
 
 import uuid
 import time
+import datetime
 
+from jsonschema import Draft4Validator, FormatChecker
 from six.moves import UserDict
 from flask.json import loads, dumps
 
@@ -23,6 +25,27 @@ class Event(UserDict):
     It's fully customizable and allow to represent the business model
     by extending it.
     """
+
+    schema = {
+        "$schema": "http://json-schema.org/schema#",
+        "type": "object",
+        "properties": {
+            "event_id": {"type": "string"},
+            "event_type": {"type": "string"},
+            "title": {"type": "string"},
+            "body": {"type": "string"},
+            "timestamp": {"type": "number"},
+            "sender": {"type": "string"},
+            "recipients": {"type": "array"},
+            "tags": {"type": "array"},
+            "expiration_datetime": {"type": "datetime"},
+        },
+        "required": [
+            "event_id", "event_type", "title",
+            "body", "timestamp", "sender", "recipients",
+            "tags", "expiration_datetime"
+        ],
+    }
 
     def __init__(self, event_id, event_type, title, body,
                  timestamp=None, sender=None, recipients=[],
@@ -46,14 +69,32 @@ class Event(UserDict):
 
         UserDict.__init__(self, dict=d, **kwargs)
 
+        validator = Draft4Validator(Event.schema,
+                                    types={"datetime": (datetime.datetime)},
+                                    format_checker=FormatChecker())
+        validator.validate(self.data)
+
     def __str__(self):
         """By default, JSON."""
         return self.to_json()
 
+    @staticmethod
+    def to_datetime(dt_format):
+        """Get datetime from default string format.
+
+        If you use your own format for the datetime, override this method
+        to match your datetimes. Otherwise, they won't be validated.
+        """
+        datetime_format = "%a, %d %b %Y %H:%M:%S GMT"
+        return datetime.datetime.strptime(dt_format, datetime_format)
+
     @classmethod
     def from_json(cls, event_json):
         """Json to event."""
-        return cls(**loads(event_json))
+        d = loads(event_json)
+        # By default, datetime are not decoded correctly
+        d["expiration_datetime"] = cls.to_datetime(d["expiration_datetime"])
+        return cls(**d)
 
     def to_json(self):
         """Event to json."""

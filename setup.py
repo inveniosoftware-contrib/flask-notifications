@@ -81,6 +81,7 @@ setup(
         'gevent',
         'sse',
         'blinker',
+        'jsonschema',
         'six'
     ],
     extras_require={
