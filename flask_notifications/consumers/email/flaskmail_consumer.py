@@ -36,8 +36,8 @@ class FlaskMailConsumer(EmailConsumer):
         """Create a message from an event."""
         event = Event.from_json(event_json)
         return Message(subject="Event {0}".format(event["event_id"]),
-                       sender=event["sender"],
-                       recipients=event["recipients"],
+                       sender=self.sender,
+                       recipients=self.recipients,
                        body=event_json)
 
     def consume(self, event_json, *args, **kwargs):

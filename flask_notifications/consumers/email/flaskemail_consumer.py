@@ -42,7 +42,7 @@ class FlaskEmailConsumer(EmailConsumer):
         event = Event.from_json(event_json)
         return EmailMessage(
             "Event {0}".format(event['event_id']),
-            event_json, event["sender"], event["recipients"]
+            event_json, self.sender, self.recipients
         )
 
     def consume(self, event_json, *args, **kwargs):

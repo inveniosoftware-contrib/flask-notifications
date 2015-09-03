@@ -38,7 +38,9 @@ class Event(UserDict):
             "sender": {"type": "string"},
             "recipients": {"type": "array"},
             "tags": {"type": "array"},
-            "expiration_datetime": {"type": "datetime"},
+            "expiration_datetime": {
+                "type": ["datetime", "null"],
+            },
         },
         "required": [
             "event_id", "event_type", "title",
@@ -48,7 +50,7 @@ class Event(UserDict):
     }
 
     def __init__(self, event_id, event_type, title, body,
-                 timestamp=None, sender=None, recipients=[],
+                 timestamp=None, sender="", recipients=[],
                  tags=[], expiration_datetime=None, **kwargs):
         """Initialize event and default non-existing values."""
         if not event_id:
@@ -92,8 +94,10 @@ class Event(UserDict):
     def from_json(cls, event_json):
         """Json to event."""
         d = loads(event_json)
-        # By default, datetime are not decoded correctly
-        d["expiration_datetime"] = cls.to_datetime(d["expiration_datetime"])
+        expiration = d["expiration_datetime"]
+        if expiration:
+            # By default, datetime are not decoded correctly
+            d["expiration_datetime"] = cls.to_datetime(expiration)
         return cls(**d)
 
     def to_json(self):

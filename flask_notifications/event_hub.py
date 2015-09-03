@@ -31,20 +31,25 @@ class EventHub:
         # To confirm registration, async consumer != consumer
         self.registered_consumers = {}
 
-    def register_consumer(self, f, *args, **kwargs):
+    def register_consumer(self, f=None, **kwargs):
         """Register a function making it asynchronous.
 
         The consumer is converted to async using the task decorator
         with the weak option enabled because the function is created in scope.
         """
-        @wraps(f)
         def register_async_consumer(f):
-            async_creator = self.celery.task(**kwargs)
-            async_f = async_creator(f)
+            @wraps(f)
+            def make_async():
+                maker = self.celery.task(**kwargs)
+                return maker(f)
+
+            async_f = make_async()
 
             def apply_with_expiration_check(event):
+                print(str(event["expiration_datetime"]))
                 return async_f.apply_async(
-                    (event,), expires=event.expiration_datetime
+                    (event.to_json(),),
+                    expires=event["expiration_datetime"]
                 )
 
             if not self.is_registered(f):
@@ -77,4 +82,4 @@ class EventHub:
     def consume(self, event, *args, **kwargs):
         """Consume the event by all the consumers."""
         if self._hub_event_filter(event):
-            self.signal.send(event.to_json())
+            self.signal.send(event)

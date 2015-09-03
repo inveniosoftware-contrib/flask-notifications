@@ -41,9 +41,9 @@ app = Flask(__name__)
 
 # Get environment variables
 default_redis_url = "redis://localhost:6379/0"
-redis_url = os.environ["REDIS_URL"] or default_redis_url
+redis_url = os.environ.get("REDIS_URL") or default_redis_url
 redis_host = redis_url.split(":")[1][2:]
-smtp_server = os.environ["SMTP_SERVER"] or "0.0.0.0"
+smtp_server = os.environ.get("SMTP_SERVER") or "0.0.0.0"
 
 default_email_account = "invnotifications@gmail.com"
 
@@ -91,7 +91,7 @@ system_hub_id = system_hub.hub_id
 
 
 # Add a new consumer to the user_hub
-@user_hub.register_consumer(celery_task_name="app.write_to_file")
+@user_hub.register_consumer(name="app.write_to_file")
 def write_to_file(event, *args, **kwargs):
     with open("events.log", "a+w") as f:
         f.write(str(event))
@@ -112,11 +112,10 @@ email_consumer = FlaskEmailConsumer.from_app(
 )
 
 # Register one or more predefined consumers
-for consumer in [mail_consumer, email_consumer]:
+for consumer in (mail_consumer, email_consumer):
     system_hub.register_consumer(consumer)
 
 # Register filters for the hubs
-# By default, they accept any event
 now = datetime.now()
 
 user_hub.filter_by(
