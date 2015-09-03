@@ -41,8 +41,14 @@ class EventHub:
         def register_async_consumer(f):
             async_creator = self.celery.task(**kwargs)
             async_f = async_creator(f)
+
+            def apply_with_expiration_check(event):
+                return async_f.apply_async(
+                    (event,), expires=event.expiration_datetime
+                )
+
             if not self.is_registered(f):
-                self.signal.connect(async_f.delay, weak=False)
+                self.signal.connect(apply_with_expiration_check, weak=False)
                 self.registered_consumers[f] = async_f
             return f
 
