@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of Flask-Notifications
-# Copyright (C) 2015 CERN.
+# Copyright (C) 2015, 2016 CERN.
 #
 # Flask-Notifications is free software; you can redistribute it and/or modify
 # it under the terms of the Revised BSD License; see LICENSE file for
@@ -13,7 +13,6 @@ import abc
 
 
 class Consumer(object):
-
     """A callable that performs an action when receives an event.
 
     A user can define his own hooks for each consumer. Two hooks

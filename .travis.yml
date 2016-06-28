@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of Flask-Notifications
-# Copyright (C) 2013, 2014, 2015 CERN.
+# Copyright (C) 2013, 2014, 2015, 2016 CERN.
 #
 # Flask-Notifications is free software; you can redistribute it and/or modify
 # it under the terms of the Revised BSD License; see LICENSE file for
@@ -19,15 +19,15 @@ python:
 
 install:
   - pip install --upgrade pip
-  - pip install coveralls pep257
-  - pip install pytest pytest-pep8 pytest-cov pytest-cache
-  - pip install -e .[docs]
+  - pip install coveralls pydocstyle
+  - pip install pytest pytest-pep8 pytest-cov pytest-cache pytest-runner
+  - pip install -e .[docs,tests]
 
 services:
   - redis
 
 script:
-  - pep257 flask_notifications
+  - pydocstyle flask_notifications
   - "sphinx-build -qnNW docs docs/_build/html"
   - python setup.py test
 

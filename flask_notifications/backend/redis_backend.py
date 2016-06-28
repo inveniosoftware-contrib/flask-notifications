@@ -13,7 +13,6 @@ from flask_notifications.backend.backend import Backend
 
 
 class RedisBackend(Backend):
-
     """Backend implementation using Redis."""
 
     def __init__(self, redis):

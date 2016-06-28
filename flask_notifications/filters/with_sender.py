@@ -13,7 +13,6 @@ from flask_notifications.event_filter import EventFilter
 
 
 class WithSender(EventFilter):
-
     """Filter that checks the sender of an event with a given one."""
 
     def __init__(self, target_sender):

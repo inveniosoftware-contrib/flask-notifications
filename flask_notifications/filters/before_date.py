@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of Flask-Notifications
-# Copyright (C) 2015 CERN.
+# Copyright (C) 2015, 2016 CERN.
 #
 # Flask-Notifications is free software; you can redistribute it and/or modify
 # it under the terms of the Revised BSD License; see LICENSE file for
@@ -15,7 +15,6 @@ from flask_notifications.event_filter import EventFilter
 
 
 class BeforeDate(EventFilter):
-
     """Filter that checks the event date is before a given date."""
 
     def __init__(self, datetime):

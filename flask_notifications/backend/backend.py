@@ -13,7 +13,6 @@ import abc
 
 
 class Backend(object):
-
     """Allows to publish, subscribe and listen to events."""
 
     __metaclass__ = abc.ABCMeta

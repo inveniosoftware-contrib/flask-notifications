@@ -21,7 +21,6 @@ from .version import __version__
 
 
 class Notifications(object):
-
     """Flask extension implementing a Notification service."""
 
     def __init__(self, app=None, celery=None, broker=None, *args, **kwargs):
