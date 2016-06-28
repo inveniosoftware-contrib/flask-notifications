@@ -39,7 +39,7 @@ setup(
     url='https://github.com/inveniosoftware/flask-notifications',
     license='BSD',
     author='CERN',
-    author_email='info@invenio-software.org',
+    author_email='info@inveniosoftware.org',
     description='Flask-Notifications is a Flask extension that adds support '
                 'for real-time notifications.',
     long_description=open('README.rst').read(),
