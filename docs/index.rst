@@ -171,7 +171,7 @@ Now, we register some consumers to our hub.
 
 When registering a function using the decorator, it is very important to specify
 the ``celery_task_name`` relatively to your application to help the workers to 
-detect the function. More information `here <http://celery.readthedocs.org/en/latest/userguide/tasks.html#names>`_.
+detect the function. More information `here <http://celery.readthedocs.io/en/latest/userguide/tasks.html#names>`_.
 
 If you feel like to write a complex consumer, you can extend the the ``Consumer``
 interface. Also, this interface has some hooks. One before consuming the event

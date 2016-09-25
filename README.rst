@@ -41,7 +41,7 @@ Flask-Notifications is on PyPI so all you need is: ::
 Documentation
 =============
 
-Documentation is readable at http://flask-notifications.readthedocs.org or can
+Documentation is readable at http://flask-notifications.readthedocs.io or can
 be build using Sphinx: ::
 
     git submodule init
